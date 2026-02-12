@@ -6,6 +6,8 @@
 ![Status](https://img.shields.io/badge/Status-Production_Active-green?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
 ![Maintainer](https://img.shields.io/badge/SRE_&_FinOps_Architect-Miguel_Lozano-black?style=for-the-badge)
+![Hetzner](https://img.shields.io/badge/Provider-Hetzner_Bare_Metal-cc342d?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48dGV4dCB4PSI1MCIgeT0iNjAiIGZvbnQtc2l6ZT0iNjAiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+SDwvdGV4dD48L3N2Zz4=)
+![OCI](https://img.shields.io/badge/Provider-Oracle_Cloud-f80000?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48dGV4dCB4PSI1MCIgeT0iNjAiIGZvbnQtc2l6ZT0iNjAiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+T0M8L3RleHQ+PC9zdmc+)
 
 > 🛡️ **NIST‑ALIGNED HARDENING SUITE**
 > 
@@ -26,7 +28,13 @@
 
 The **NIST-Compliant Hardening Suite** is an automated configuration management framework designed to solve the **Security Parity** problem in hybrid cloud environments.
 
+### 🎯 Initially Focused On:
+- **🏢 Hetzner** – Bare Metal servers (Cloud specials, dedicated hosting)
+- **☁️ Oracle Cloud** – OCI Compute instances (E2, Standard, Optimized shapes)
+
 It guarantees that nodes running in **Oracle Cloud** and **Hetzner** maintain an identical defensive posture—independent of hardware architecture, hypervisor, or provider defaults.
+
+> **Note:** While built for OCI + Hetzner, the playbooks are cloud-agnostic and should work on any Debian/Ubuntu-based system.
 
 ---
 
