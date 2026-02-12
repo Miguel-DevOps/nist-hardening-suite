@@ -1,0 +1,95 @@
+{
+    email admin@example.com
+    order coraza_waf first
+    order rate_limit before basicauth
+
+    # 🛡️ CLOUDFLARE REAL IP RESTORATION
+    servers {
+        trusted_proxies static {
+            173.245.48.0/20
+            103.21.244.0/22
+            103.22.200.0/22
+            103.31.4.0/22
+            141.101.64.0/18
+            108.162.192.0/18
+            190.93.240.0/20
+            188.114.96.0/20
+            197.234.240.0/22
+            198.41.128.0/17
+            162.158.0.0/15
+            104.16.0.0/13
+            104.24.0.0/14
+            172.64.0.0/13
+            131.0.72.0/22
+        }
+    }
+}
+
+# Health check interno
+:2020 {
+    respond "OK" 200
+}
+
+# 🧱 WAF BLOCK (Coraza)
+(waf) {
+    coraza_waf {
+        directives `
+            Include /etc/caddy/coraza.conf
+            Include /etc/caddy/owasp-crs/crs-setup.conf
+            Include /etc/caddy/owasp-crs/rules/*.conf
+            SecRuleEngine On
+        `
+    }
+}
+
+# 🔒 VPN RESTRICTION BLOCK (Zero Trust)
+(vpn_only) {
+    @denied_vpn {
+        not remote_ip {{ tailscale_subnet }} 127.0.0.1/8 ::1
+    }
+    abort @denied_vpn
+}
+
+# -----------------------------------------------------------------------------
+# 1. Example Application (Backend Service)
+# -----------------------------------------------------------------------------
+example.com, www.example.com {
+    import waf
+    import vpn_only  # Restrict to Tailscale VPN ({{ tailscale_subnet }})
+
+    reverse_proxy backend-app:8000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+    }
+}
+
+# -----------------------------------------------------------------------------
+# 2. Application 1 (Another Backend)
+# -----------------------------------------------------------------------------
+app1.example.com {
+    import vpn_only  # Restrict to Tailscale VPN ({{ tailscale_subnet }})
+
+    reverse_proxy app1-backend:8000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-Proto https
+        header_up X-Forwarded-For {remote_host}
+    }
+    
+    encode gzip
+}
+
+# -----------------------------------------------------------------------------
+# 3. Application 2 (Dashboard)
+# -----------------------------------------------------------------------------
+app2.example.com {
+    import vpn_only  # Restrict to Tailscale VPN ({{ tailscale_subnet }})
+
+    reverse_proxy app2-backend:9000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-Proto https
+        header_up X-Forwarded-For {remote_host}
+    }
+
+}

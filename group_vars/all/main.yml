@@ -1,0 +1,4 @@
+---
+# Global network defaults
+# Set this if you use Headscale or a custom subnet.
+tailscale_subnet: "100.64.0.0/10"

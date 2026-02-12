@@ -1,0 +1,191 @@
+---
+# ==============================================================================
+# CROWDSEC ROLE - Collaborative Intrusion Prevention System (NIST SI-4)
+# ==============================================================================
+# Installs CrowdSec agent for real-time threat detection and collaborative blocking
+# Provider-agnostic: works on both Hetzner and OCI
+# ==============================================================================
+
+- name: SI-4 | Install prerequisites
+  ansible.builtin.apt:
+    name:
+      - curl
+      - gnupg
+      - apt-transport-https
+    state: present
+  tags: [crowdsec, nist, si-4]
+
+- name: SI-4 | Create keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+  tags: [crowdsec, nist, si-4]
+
+- name: SI-4 | Add CrowdSec GPG key (modern signed-by method)
+  ansible.builtin.get_url:
+    url: https://pkgs.crowdsec.net/gpg.key
+    dest: /etc/apt/keyrings/crowdsec.asc
+    mode: '0644'
+  tags: [crowdsec, nist, si-4]
+
+- name: SI-4 | Add CrowdSec repository (Ubuntu)
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/crowdsec.asc] https://pkgs.crowdsec.net/ubuntu {{ ansible_distribution_release }} main"
+    state: present
+    filename: crowdsec
+    update_cache: true
+  when: ansible_distribution == 'Ubuntu'
+  tags: [crowdsec, nist, si-4]
+
+- name: SI-4 | Add CrowdSec repository (Debian)
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/crowdsec.asc] https://pkgs.crowdsec.net/debian {{ ansible_distribution_release }} main"
+    state: present
+    filename: crowdsec
+    update_cache: true
+  when: ansible_distribution == 'Debian'
+  tags: [crowdsec, nist, si-4]
+
+- name: SI-4 | Install CrowdSec agent
+  ansible.builtin.apt:
+    name:
+      - crowdsec
+      - crowdsec-firewall-bouncer-iptables
+    state: present
+  tags: [crowdsec, nist, si-4]
+
+- name: SI-4 | Configure CrowdSec for local context
+  ansible.builtin.copy:
+    dest: /etc/crowdsec/config.yaml.local
+    content: |
+      common:
+        log_level: info
+        daemonize: true
+      
+      cscli:
+        output: human
+      
+      crowdsec_service:
+        acquisition_path: /etc/crowdsec/acquis.yaml
+        parser_routines: 1
+      
+      api:
+        client:
+          credentials_path: /etc/crowdsec/local_api_credentials.yaml
+        server:
+          listen_uri: 127.0.0.1:8080
+          profiles_path: /etc/crowdsec/profiles.yaml
+    mode: '0640'
+  notify: Restart CrowdSec
+  tags: [crowdsec, nist, si-4]
+
+- name: SI-4 | Configure log acquisition (SSH & auth logs)
+  ansible.builtin.copy:
+    dest: /etc/crowdsec/acquis.yaml
+    content: |
+      filenames:
+        - /var/log/auth.log
+        - /var/log/syslog
+      
+      labels:
+        type: syslog
+      
+      # SSH bruteforce detection
+      - /var/log/auth.log:
+          labels:
+            type: syslog
+            source: ssh
+      
+      # Web application logs (if available)
+      - /var/log/caddy/*.log:
+          labels:
+            type: syslog
+            source: caddy
+    mode: '0640'
+  notify: Restart CrowdSec
+  tags: [crowdsec, nist, si-4]
+
+- name: SI-4 | Initialize CrowdSec local API
+  ansible.builtin.command: cscli machines add -a
+  args:
+    creates: /etc/crowdsec/local_api_credentials.yaml
+  tags: [crowdsec, nist, si-4]
+
+- name: SI-4 | Install firewall bouncer
+  ansible.builtin.command: cscli bouncers add firewall-bouncer
+  register: bouncer_add
+  changed_when: "'already exists' not in bouncer_add.stderr"
+  tags: [crowdsec, nist, si-4]
+
+- name: SI-4 | Enable and start CrowdSec service
+  ansible.builtin.systemd:
+    name: crowdsec
+    state: started
+    enabled: true
+  tags: [crowdsec, nist, si-4]
+
+- name: SI-4 | Enable and start firewall bouncer
+  ansible.builtin.systemd:
+    name: crowdsec-firewall-bouncer
+    state: started
+    enabled: true
+  tags: [crowdsec, nist, si-4]
+
+- name: SI-4 | Download security collections
+  ansible.builtin.command: cscli collections install crowdsecurity/linux
+  register: collections_install
+  changed_when: "'already installed' not in collections_install.stdout"
+  tags: [crowdsec, nist, si-4]
+
+- name: SI-4 | Configure hybrid signal sharing (optional - requires console API key)
+  block:
+    - name: Check if CrowdSec console key is provided
+      ansible.builtin.assert:
+        that: crowdsec_console_key is defined
+        msg: "CrowdSec console key not defined. Set 'crowdsec_console_key' in vault for hybrid signal sharing."
+    
+    - name: Enroll in CrowdSec Console for hybrid signal sharing
+      ansible.builtin.command: cscli console enroll {{ crowdsec_console_key }}
+      args:
+        creates: "/etc/crowdsec/online_api_credentials.yaml"
+      no_log: true
+      notify: Restart CrowdSec
+  when: crowdsec_console_key is defined
+  tags: [crowdsec, nist, si-4]
+
+- name: SI-4 | Verify CrowdSec installation
+  ansible.builtin.command: cscli version
+  register: crowdsec_version
+  changed_when: false
+  tags: [crowdsec, nist, si-4]
+
+- name: SI-4 | Display CrowdSec status
+  ansible.builtin.debug:
+    msg:
+      - "✅ CrowdSec IPS Active (NIST SI‑4)"
+      - "   Version: {{ crowdsec_version.stdout }}"
+      - "   Mode: {{ 'Hybrid (console enrolled)' if crowdsec_console_key is defined else 'Local detection' }}"
+      - "   Collections: crowdsecurity/linux"
+      - "   Bouncer: crowdsec-firewall-bouncer-iptables"
+      - "   Logs monitored: /var/log/auth.log, /var/log/syslog"
+  tags: [crowdsec, nist, si-4]
+
+- name: SI-4 | Deploy CrowdSec monitoring script
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/scripts/monitor-crowdsec.sh"
+    dest: /usr/local/bin/monitor-crowdsec
+    mode: '0755'
+    owner: root
+    group: root
+  tags: [crowdsec, nist, si-4, monitoring]
+
+- name: SI-4 | Display monitoring instructions
+  ansible.builtin.debug:
+    msg:
+      - ""
+      - "📊 CrowdSec Monitoring Available:"
+      - "   Run: monitor-crowdsec --status"
+      - "   JSON output: monitor-crowdsec --json"
+      - "   For extended monitoring features, refer to project documentation."
+  tags: [crowdsec, nist, si-4, monitoring]

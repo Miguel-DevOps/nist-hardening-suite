@@ -1,0 +1,84 @@
+---
+- name: Ensure Portainer data directory exists (Brain only)
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}/portainer_data"
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  when: "'brain' in group_names"
+
+- name: Get Tailscale IP address
+  ansible.builtin.shell: tailscale ip -4
+  register: tailscale_ip_result
+  changed_when: false
+  failed_when: tailscale_ip_result.rc != 0
+  check_mode: false
+
+- name: Validate Tailscale IP was obtained
+  ansible.builtin.fail:
+    msg: "Tailscale IP address could not be obtained. Is Tailscale running?"
+  when: tailscale_ip_result.stdout == ""
+
+- name: Set Tailscale IP fact
+  ansible.builtin.set_fact:
+    tailscale_ip: "{{ tailscale_ip_result.stdout }}"
+
+# ------------------------------------------------------------------------------
+# DESPLIEGUE EN BRAIN (SERVER)
+# ------------------------------------------------------------------------------
+- name: Deploy Portainer Server Compose File
+  ansible.builtin.template:
+    src: portainer-server.yml.j2
+    dest: "{{ app_base_dir }}/portainer-server-compose.yml"
+    mode: '0640'
+  when: "'brain' in group_names"
+
+- name: Deploy Portainer Server Stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ app_base_dir }}"
+    files:
+      - portainer-server-compose.yml
+    state: present
+    pull: always
+  when: "'brain' in group_names"
+
+# ------------------------------------------------------------------------------
+# DESPLIEGUE EN MUSCLE (EDGE AGENT)
+# ------------------------------------------------------------------------------
+- name: Ensure Agent directory exists
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}/portainer_agent"
+    state: directory
+    mode: '0755'
+  when: "'muscle' in group_names"
+
+- name: Deploy Portainer Edge Agent Compose File
+  ansible.builtin.template:
+    src: portainer-edge-agent.yml.j2
+    dest: "{{ app_base_dir }}/portainer_agent/docker-compose.yml"
+    mode: '0640'
+  when:
+    - "'muscle' in group_names"
+
+- name: Deploy Portainer Agent Stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ app_base_dir }}/portainer_agent"
+    state: present
+    pull: always
+  when: "'muscle' in group_names"
+
+- name: Portainer Edge Agent Security Notice (Reduced Attack Surface)
+  ansible.builtin.debug:
+    msg:
+      - "✅ PORTAINER EDGE AGENT SECURITY STATUS"
+      - "The Portainer Edge Agent uses pull-based architecture with ZERO open ports."
+      - "✅ Reduced lateral movement risk: No API endpoints exposed on Tailscale network."
+      - ""
+      - "SECURITY NOTE: Docker socket is still mounted (read-only)."
+      - "If the host is compromised, containers can still be accessed via Docker socket."
+      - ""
+      - "Edge Agent connects to Portainer server at: {{ portainer_server_url }}"
+  when:
+    - "'muscle' in group_names"
+  tags: [security, portainer]

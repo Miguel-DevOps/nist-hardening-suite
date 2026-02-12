@@ -1,0 +1,43 @@
+# ==============================================================================
+# ANSIBLE INVENTORY - Multi-Cloud Cluster (Template)
+# ==============================================================================
+# Copy this file to hosts.ini and replace placeholder values
+# DO NOT commit hosts.ini to version control (contains sensitive IPs)
+# ==============================================================================
+
+# ===== SERVER GROUPS =====
+[brain]
+# Management Node (Hetzner, DigitalOcean, etc.)
+brain-hetzner ansible_host=YOUR_BRAIN_PUBLIC_IP ansible_user=root public_ip=YOUR_BRAIN_PUBLIC_IP node_role=management
+
+[muscle]
+# Compute Workers (Oracle Cloud, AWS, GCP, etc.)
+muscle-oci-1 ansible_host=YOUR_MUSCLE_PUBLIC_IP ansible_user=ubuntu public_ip=YOUR_MUSCLE_PUBLIC_IP node_role=worker
+# Add more workers as needed:
+# muscle-oci-2 ansible_host=ANOTHER_PUBLIC_IP ansible_user=ubuntu public_ip=ANOTHER_PUBLIC_IP node_role=worker
+
+# ===== FUNCTIONAL GROUPS =====
+[observability:children]
+brain
+
+[ingress:children]
+brain
+muscle
+
+[application_nodes:children]
+muscle
+
+# ===== GLOBAL VARIABLES =====
+[all:vars]
+# SSH Configuration
+ansible_ssh_private_key_file=~/.ssh/id_ed25519
+ansible_ssh_common_args='-o StrictHostKeyChecking=accept-new -o ServerAliveInterval=60 -o ServerAliveCountMax=3'
+ansible_python_interpreter=/usr/bin/python3
+
+# Infrastructure configuration
+cluster_name=nist_hardened_cluster
+app_base_dir=/srv/app
+
+# Provider detection (auto-detected, but can be overridden)
+# cloud_provider=hetzner  # or 'oci', 'aws', 'gcp', 'azure'
+# server_role=brain       # or 'muscle'

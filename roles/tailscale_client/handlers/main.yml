@@ -1,0 +1,10 @@
+---
+- name: Restart Tailscale
+  ansible.builtin.systemd:
+    name: tailscaled
+    state: restarted
+
+- name: Restart systemd-networkd
+  ansible.builtin.systemd:
+    name: systemd-networkd
+    state: restarted

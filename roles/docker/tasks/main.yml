@@ -1,0 +1,126 @@
+---
+# =============================================================================
+# DOCKER ENGINE INSTALLATION - Production Grade (Architecture Agnostic)
+# =============================================================================
+# Installs Docker Engine with pinned versions for Docker Cluster
+# Auto-detects ARM64/x86_64 using dpkg --print-architecture
+# Supports: Debian 11/12, Ubuntu 22.04/24.04
+# Versions controlled centrally in group_vars/all/secrets.yml
+# =============================================================================
+
+- name: Validate docker_version_map is defined
+  ansible.builtin.assert:
+    that:
+      - docker_version_map is defined
+      - docker_version_map[ansible_distribution] is defined
+      - docker_version_map[ansible_distribution][ansible_distribution_release] is defined
+    fail_msg: |
+      docker_version_map must be defined in group_vars/all/secrets.yml
+      Current OS: {{ ansible_distribution }} {{ ansible_distribution_release }}
+    success_msg: "Docker version: {{ docker_version_map[ansible_distribution][ansible_distribution_release] }}"
+
+- name: Display Docker version to be installed
+  ansible.builtin.debug:
+    msg: "🐳 Docker Engine: {{ docker_version_map[ansible_distribution][ansible_distribution_release] }}"
+
+- name: Remove conflicting packages
+  ansible.builtin.apt:
+    name:
+      - docker.io
+      - docker-doc
+      - docker-compose
+      - podman-docker
+      - containerd
+      - runc
+    state: absent
+    purge: true
+  failed_when: false
+
+- name: Install prerequisites
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+      - python3-docker
+    state: present
+    update_cache: true
+
+- name: Create keyrings directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Add Docker GPG key
+  ansible.builtin.get_url:
+    url: "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg"
+    dest: /etc/apt/keyrings/docker.asc
+    mode: '0644'
+
+- name: Get dpkg architecture
+  ansible.builtin.command: dpkg --print-architecture
+  register: dpkg_arch
+  changed_when: false
+
+- name: Add Docker repository (Multi-arch auto-detection)
+  ansible.builtin.apt_repository:
+    repo: "deb [arch={{ dpkg_arch.stdout }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable"
+    state: present
+    filename: docker
+    update_cache: false
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+
+- name: Install Docker Engine (Pinned version)
+  ansible.builtin.apt:
+    name:
+      - "docker-ce={{ docker_version_map[ansible_distribution][ansible_distribution_release] }}"
+      - "docker-ce-cli={{ docker_version_map[ansible_distribution][ansible_distribution_release] }}"
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+    allow_downgrade: true
+
+- name: Hold Docker packages to prevent upgrades
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - docker-ce
+    - docker-ce-cli
+
+- name: Ensure Docker service is enabled and running
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Configure Docker daemon options (Production Hardening)
+  ansible.builtin.template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+    mode: '0644'
+  notify: Restart Docker
+
+- name: Create Docker garbage collection cron job
+  ansible.builtin.cron:
+    name: "Docker system prune"
+    minute: "0"
+    hour: "3"
+    weekday: "0"
+    job: "/usr/bin/docker system prune -af --filter until=168h >> /var/log/docker-gc.log 2>&1"
+    user: root
+
+- name: Verify Docker installation
+  ansible.builtin.command: docker --version
+  register: docker_version_output
+  changed_when: false
+
+- name: Display Docker version
+  ansible.builtin.debug:
+    msg: "✅ Docker installed: {{ docker_version_output.stdout }}"

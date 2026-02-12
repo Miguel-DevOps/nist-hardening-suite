@@ -1,0 +1,23 @@
+---
+- name: Reload UFW
+  community.general.ufw:
+    state: reloaded
+  throttle: 1
+
+- name: Restart fail2ban
+  ansible.builtin.systemd:
+    name: fail2ban
+    state: restarted
+  throttle: 1
+
+- name: Restart SSH
+  ansible.builtin.systemd:
+    name: ssh
+    state: restarted
+  throttle: 1
+
+- name: Restart auditd
+  ansible.builtin.systemd:
+    name: auditd
+    state: restarted
+  throttle: 1

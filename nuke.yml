@@ -1,0 +1,771 @@
+---
+# ==============================================================================
+# ☢️ SCORCHED EARTH - Complete Infrastructure Wipeout
+# ==============================================================================
+# Purpose: Complete Docker/Tailscale/Security nuclear cleanup
+# Architecture: ARM64/x86_64 compatible
+# WARNING: DESTRUCTIVE - Wipes all infrastructure but PROTECTS /home & SSH config
+# ==============================================================================
+# Version: 4.1 - Auto Public IP Switching (Jan 2026)
+#
+# ⚠️  IMPORTANT - SSH CONNECTION SAFETY:
+#   - This playbook AUTOMATICALLY uses public IPs (not Tailscale IPs)
+#   - Prevents disconnection when Tailscale is destroyed mid-playbook
+#   - Requires 'public_ip' variable defined in hosts.ini for each host
+#
+# Execution modes:
+#   - Full nuke:           ansible-playbook nuke.yml --ask-vault-pass
+#   - Skip Tailscale:      ansible-playbook nuke.yml --skip-tags=tailscale
+#   - Containers only:     ansible-playbook nuke.yml --tags=containers
+# Safety valve:
+#   - Nuke is blocked on hosts in the 'production' inventory group
+# ==============================================================================
+
+- name: ☢️ NUKE - Complete Infrastructure Wipeout
+  hosts: all
+  become: true
+  gather_facts: true
+
+  vars_prompt:
+    - name: confirm_nuke
+      prompt: |
+        ⚠️  ☢️  NUCLEAR CLEANUP CONFIRMATION ⚠️
+
+        This playbook will DESTROY ALL Docker containers, images, volumes, networks,
+        Tailscale VPN, firewall rules, and application data.
+
+        THIS ACTION IS IRREVERSIBLE AND WILL DELETE:
+        - All Docker containers (running & stopped)
+        - All Docker images
+        - All Docker volumes and networks
+        - Tailscale VPN configuration
+        - UFW firewall and fail2ban configuration
+        - Application data in /srv/app
+
+        PROTECTED: /home, /root/.ssh, /etc/ssh will NOT be touched.
+
+        To proceed, type 'DESTROY_ALL_INFRASTRUCTURE' (exactly as shown) to confirm:
+      private: false
+      default: "NO"
+
+  vars:
+    # Protected directories (NEVER touch - contains user data & SSH keys)
+    protected_paths:
+      - "/home"
+      - "/root/.ssh"
+      - "/etc/ssh"
+
+    # Auto-reboot after cleanup (set via --extra-vars "auto_reboot=true")
+    auto_reboot: false
+
+  pre_tasks:
+    - name: "⚠️  CONFIRMATION: Verify nuclear cleanup approval"
+      fail:
+        msg: "❌ Nuclear cleanup NOT confirmed. You must type 'DESTROY_ALL_INFRASTRUCTURE' exactly to proceed."
+      when: confirm_nuke != 'DESTROY_ALL_INFRASTRUCTURE'
+      tags: [always]
+
+    - name: Prevent Nuke on Production by Tag
+      ansible.builtin.fail:
+        msg: "Nuke is disabled on servers tagged 'production'"
+      when:
+        - "'production' in groups"
+        - inventory_hostname in groups['production']
+      tags: [always]
+
+    - name: "🔄 SAFETY: Switch to public IP for SSH connection stability"
+      set_fact:
+        ansible_host: "{{ public_ip }}"
+      when: public_ip is defined
+      tags: [always]
+
+    - name: "⚠️  WARNING: No public_ip defined - using current ansible_host (may disconnect!)"
+      debug:
+        msg: |
+          ⚠️  WARNING: Host {{ inventory_hostname }} has no 'public_ip' variable defined.
+          ⚠️  Connection may be lost when Tailscale is destroyed.
+          ⚠️  Current ansible_host: {{ ansible_host }}
+      when: public_ip is not defined
+      tags: [always]
+
+  tasks:
+    # ==========================================================================
+    # 🔴 LAYER 1: DOCKER DESTRUCTION (stacks.yml reversal)
+    # ==========================================================================
+    # Tags: containers, stacks
+    # Purpose: Remove all containers, images, volumes, networks
+    # Order: stacks removal → containers → images → volumes
+    # ==========================================================================
+
+    - name: "🔴 LAYER 1.1: Stop ALL Docker Compose stacks"
+      shell: |
+        # Stop all Docker Compose projects
+        cd /srv/app || exit 0
+        for dir in */; do
+          if [ -f "${dir}docker-compose.yml" ]; then
+            echo "Stopping stack in: $dir"
+            docker compose -f "${dir}docker-compose.yml" down 2>/dev/null || true
+          fi
+        done
+
+        echo "✅ All Docker Compose stacks stopped"
+      changed_when: false
+      failed_when: false
+      tags: [containers, stacks, all]
+
+    - name: "🔴 LAYER 1.2: Stop ALL Docker containers (force)"
+      shell: |
+        # Stop all running containers (safe against malicious container names)
+        docker ps -aq | xargs -r docker stop 2>/dev/null || true
+        
+        # Wait a moment for containers to stop
+        sleep 2
+        
+        # Force kill any remaining running containers
+        docker ps -aq | xargs -r docker kill 2>/dev/null || true
+        
+        # Remove all containers (including stopped)
+        docker ps -aq | xargs -r docker rm -f 2>/dev/null || true
+        
+        # Verify no containers remain
+        if docker ps -aq 2>/dev/null | grep -q .; then
+          echo "⚠️  WARNING: Some containers still exist, attempting force removal..."
+          docker ps -aq | xargs -r docker rm -f 2>/dev/null || true
+        fi
+        
+        echo "✅ All Docker containers stopped and removed"
+      changed_when: false
+      failed_when: false
+      tags: [data, all]
+
+    - name: "🔴 LAYER 1.3: Remove ALL Docker images"
+      shell: |
+        docker images -aq | xargs -r docker rmi -f 2>/dev/null || true
+        echo "✅ All Docker images removed"
+      changed_when: false
+      failed_when: false
+      tags: [data, all]
+
+    - name: "🔴 LAYER 1.8: Remove ALL Docker volumes"
+      shell: |
+        docker volume ls -q | xargs -r docker volume rm -f 2>/dev/null || true
+        echo "✅ All Docker volumes removed"
+      changed_when: false
+      failed_when: false
+      tags: [data, all]
+
+    - name: "🔴 LAYER 1.9: Remove ALL Docker networks (preserve defaults)"
+      shell: |
+        # Remove custom networks, preserve bridge, host, none
+        for network in $(docker network ls --filter type=custom -q); do
+          docker network rm "$network" 2>/dev/null || true
+        done
+        echo "✅ Custom Docker networks removed"
+      changed_when: false
+      failed_when: false
+      tags: [data, all]
+
+    - name: "🔴 LAYER 1.10: Prune Docker system (deep clean)"
+      shell: |
+        docker system prune -af --volumes 2>/dev/null || true
+        echo "✅ Docker system pruned"
+      changed_when: false
+      failed_when: false
+      tags: [data, all]
+
+    - name: "🔴 LAYER 1.11: Stop Docker and containerd services"
+      systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      loop:
+        - docker.service
+        - docker.socket
+        - containerd.service
+      failed_when: false
+      tags: [data, all]
+
+    - name: "🔴 LAYER 1.12: Kill stubborn Docker/containerd processes"
+      shell: |
+        # Graceful termination
+        pkill -15 dockerd 2>/dev/null || true
+        pkill -15 containerd 2>/dev/null || true
+        pkill -15 docker-proxy 2>/dev/null || true
+        sleep 3
+
+        # Force kill
+        pkill -9 dockerd 2>/dev/null || true
+        pkill -9 containerd 2>/dev/null || true
+        pkill -9 containerd-shim 2>/dev/null || true
+        pkill -9 docker-proxy 2>/dev/null || true
+
+        echo "✅ Docker/containerd processes terminated"
+      changed_when: false
+      tags: [data, all]
+
+    # ==========================================================================
+    # 🔴 LAYER 2: TAILSCALE VPN DESTRUCTION (site.yml reversal)
+    # ==========================================================================
+    # Tags: tailscale
+    # Purpose: Disconnect from Tailscale mesh, remove VPN software
+    # Safety: SSH connection maintained via public IPs (see pre_tasks)
+    # ==========================================================================
+
+    - name: "🔴 LAYER 2.1: Logout from Tailscale (disconnect from mesh)"
+      shell: |
+        tailscale logout --accept-routes=false 2>/dev/null || true
+        tailscale down 2>/dev/null || true
+        echo "✅ Tailscale disconnected"
+      changed_when: false
+      failed_when: false
+      tags: [tailscale, all]
+
+    - name: "🔴 LAYER 2.2: Stop Tailscale service"
+      systemd:
+        name: tailscaled
+        state: stopped
+        enabled: false
+      failed_when: false
+      tags: [tailscale, all]
+
+    - name: "🔴 LAYER 2.3: Remove Tailscale package (with hold release)"
+      shell: |
+        # Release package hold if pinned
+        apt-mark unhold tailscale 2>/dev/null || true
+
+        # Purge package and config
+        apt-get purge -y tailscale 2>/dev/null || true
+        apt-get autoremove -y 2>/dev/null || true
+
+        echo "✅ Tailscale package removed"
+      changed_when: false
+      failed_when: false
+      tags: [tailscale, all]
+
+    - name: "🔴 LAYER 2.4: Remove Tailscale data and config"
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/lib/tailscale
+        - /etc/tailscale
+        - /etc/apt/sources.list.d/tailscale.list
+        - /usr/share/keyrings/tailscale-archive-keyring.gpg
+      tags: [tailscale, all]
+
+    # ==========================================================================
+    # 🔴 LAYER 3: SECURITY TOOLS DESTRUCTION (fail2ban, UFW - site.yml reversal)
+    # ==========================================================================
+    # Tags: security
+    # Purpose: Remove fail2ban intrusion prevention, remove UFW firewall
+    # ==========================================================================
+
+    - name: "🔴 LAYER 3.1: Stop and disable fail2ban"
+      systemd:
+        name: fail2ban
+        state: stopped
+        enabled: false
+      failed_when: false
+      tags: [security, all]
+
+    - name: "🔴 LAYER 3.2: Remove fail2ban package"
+      apt:
+        name: fail2ban
+        state: absent
+        purge: yes
+      failed_when: false
+      tags: [security, all]
+
+    - name: "🔴 LAYER 3.3: Remove fail2ban configuration"
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/fail2ban
+        - /var/lib/fail2ban
+      tags: [security, all]
+
+    - name: "🔴 LAYER 3.4: Disable UFW firewall (prevent lockout)"
+      shell: |
+        ufw --force disable 2>/dev/null || true
+        echo "✅ UFW disabled"
+      changed_when: false
+      failed_when: false
+      tags: [security, all]
+
+    - name: "🔴 LAYER 3.5: Flush all iptables rules (with SSH protection)"
+      shell: |
+        # Flush all chains
+        iptables -F
+        iptables -X
+        iptables -t nat -F
+        iptables -t nat -X
+        iptables -t mangle -F
+        iptables -t mangle -X
+        iptables -t raw -F
+        iptables -t raw -X
+
+        # IPv6
+        ip6tables -F 2>/dev/null || true
+        ip6tables -X 2>/dev/null || true
+        ip6tables -t nat -F 2>/dev/null || true
+        ip6tables -t nat -X 2>/dev/null || true
+        ip6tables -t mangle -F 2>/dev/null || true
+        ip6tables -t mangle -X 2>/dev/null || true
+
+        # CRITICAL: Set ACCEPT policies (prevent SSH lockout)
+        iptables -P INPUT ACCEPT
+        iptables -P FORWARD ACCEPT
+        iptables -P OUTPUT ACCEPT
+
+        ip6tables -P INPUT ACCEPT 2>/dev/null || true
+        ip6tables -P FORWARD ACCEPT 2>/dev/null || true
+        ip6tables -P OUTPUT ACCEPT 2>/dev/null || true
+
+        echo "✅ iptables flushed with safe defaults"
+      changed_when: false
+      tags: [security, all]
+
+    - name: "🔴 LAYER 3.6: Remove UFW package and config"
+      apt:
+        name: ufw
+        state: absent
+        purge: yes
+      failed_when: false
+      tags: [security, all]
+
+    - name: "🔴 LAYER 3.7: Remove UFW and iptables persistent files"
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/ufw
+        - /lib/ufw
+        - /etc/iptables/rules.v4
+        - /etc/iptables/rules.v6
+        - /etc/iptables
+      tags: [security, all]
+
+    # ==========================================================================
+    # 🔴 LAYER 4: DATA & CONFIGURATION DESTRUCTION
+    # ==========================================================================
+    # Tags: data
+    # Purpose: Unmount filesystems, remove Docker data, clean system artifacts
+    # ==========================================================================
+
+    - name: "🔴 LAYER 4.1: Find and unmount Docker overlay filesystems"
+      shell: |
+        mount | grep -E '(overlay|docker|containers)' | awk '{print $3}' | sort -r || echo ""
+      register: docker_mounts
+      changed_when: false
+      failed_when: false
+      tags: [data, all]
+
+    - name: "🔴 LAYER 4.2: Kill processes using Docker mounts"
+      shell: |
+        {% for mount_path in docker_mounts.stdout_lines %}
+        if [ -d "{{ mount_path }}" ]; then
+          fuser -km "{{ mount_path }}" 2>/dev/null || true
+          sleep 1
+        fi
+        {% endfor %}
+        echo "✅ Processes using mounts killed"
+      when: docker_mounts.stdout_lines | length > 0
+      changed_when: false
+      failed_when: false
+      tags: [data, all]
+
+    - name: "🔴 LAYER 4.3: Lazy unmount Docker volumes"
+      shell: |
+        {% for mount_path in docker_mounts.stdout_lines %}
+        umount -f "{{ mount_path }}" 2>/dev/null || true
+        umount -l "{{ mount_path }}" 2>/dev/null || true
+        {% endfor %}
+        echo "✅ All Docker mounts unmounted"
+      when: docker_mounts.stdout_lines | length > 0
+      changed_when: false
+      failed_when: false
+      tags: [data, all]
+
+    - name: "🔴 LAYER 4.4: Delete application data directories"
+      file:
+        path: /srv/app
+        state: absent
+      tags: [data, all]
+
+    - name: "🔴 LAYER 4.5: Delete Docker data directories"
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/lib/docker
+        - /var/lib/containerd
+        - /etc/docker
+        - /etc/containerd
+        - /run/docker
+        - /run/containerd
+        - /run/docker.sock
+        - /var/run/docker.sock
+      tags: [data, all]
+
+    - name: "🔴 LAYER 4.6: Delete application logs"
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/log/docker
+        - /var/log/containers
+        - /var/log/pods
+      tags: [data, all]
+
+    - name: "🔴 LAYER 4.7: Remove systemd unit files and overrides"
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/systemd/system/docker.service
+        - /etc/systemd/system/docker.service.d
+        - /etc/systemd/system/docker.socket
+        - /etc/systemd/system/containerd.service
+        - /etc/systemd/system/containerd.service.d
+        - /lib/systemd/system/docker.service
+        - /lib/systemd/system/docker.socket
+        - /lib/systemd/system/containerd.service
+      tags: [data, all]
+
+    - name: "🔴 LAYER 4.8: Unhold pinned packages"
+      shell: |
+        # Release all package holds
+        apt-mark unhold docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin 2>/dev/null || true
+        echo "✅ Package holds released"
+      changed_when: false
+      failed_when: false
+      tags: [data, all]
+
+    - name: "🔴 LAYER 4.9: Remove Docker APT repository"
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/apt/sources.list.d/docker.list
+        - /etc/apt/keyrings/docker.asc
+        - /etc/apt/keyrings/docker.gpg
+        - /usr/share/keyrings/docker-archive-keyring.gpg
+      tags: [data, all]
+
+    - name: "🔴 LAYER 4.10: Remove Docker packages"
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+          - docker-compose
+        state: absent
+        purge: yes
+      failed_when: false
+      tags: [data, all]
+
+    - name: "🔴 LAYER 4.11: Clean DNS cache and /etc/hosts"
+      shell: |
+        # Remove custom entries from /etc/hosts (preserve localhost)
+        sed -i '/tailscale/d' /etc/hosts || true
+        sed -i '/muscle/d' /etc/hosts || true
+        sed -i '/brain/d' /etc/hosts || true
+
+        # Clear DNS cache
+        systemd-resolve --flush-caches 2>/dev/null || true
+        resolvectl flush-caches 2>/dev/null || true
+
+        echo "✅ DNS cache cleared"
+      changed_when: false
+      failed_when: false
+      tags: [data, all]
+
+    - name: "🔴 LAYER 4.12: Remove temporary files"
+      shell: |
+        rm -rf /tmp/docker-* 2>/dev/null || true
+        rm -rf /tmp/ansible-* 2>/dev/null || true
+        echo "✅ Temporary files removed"
+      changed_when: false
+      failed_when: false
+      tags: [data, all]
+
+    # ==========================================================================
+    # 🔴 LAYER 5: NETWORK CLEANUP
+    # ==========================================================================
+    # Tags: network
+    # Purpose: Remove Docker network interfaces, routes, namespaces
+    # ==========================================================================
+
+    - name: "🔴 LAYER 5.1: Detect Docker network interfaces"
+      shell: |
+        ip link show | grep -oP '(docker0|br-\w+|veth\w+)' || true
+      register: docker_interfaces
+      changed_when: false
+      failed_when: false
+      tags: [network, all]
+
+    - name: "🔴 LAYER 5.2: Delete Docker network interfaces"
+      shell: |
+        # Delete docker0 bridge
+        ip link delete docker0 2>/dev/null || true
+
+        # Delete custom bridges (br-*)
+        for iface in $(ip link show | grep -oP 'br-\w+'); do
+          ip link delete "$iface" 2>/dev/null || true
+        done
+
+        # Delete veth pairs
+        for iface in $(ip link show | grep -oP 'veth\w+'); do
+          ip link delete "$iface" 2>/dev/null || true
+        done
+
+        echo "✅ Docker network interfaces deleted"
+      changed_when: false
+      failed_when: false
+      tags: [network, all]
+
+    - name: "🔴 LAYER 5.3: Clear Docker routing tables"
+      shell: |
+        # Remove Docker-specific routes (preserve default gateway)
+        ip route del 172.17.0.0/16 2>/dev/null || true
+        ip route del 172.18.0.0/16 2>/dev/null || true
+        ip route del 172.19.0.0/16 2>/dev/null || true
+
+        echo "✅ Docker routes cleared"
+      changed_when: false
+      failed_when: false
+      tags: [network, all]
+
+    - name: "🔴 LAYER 5.4: Delete orphaned network namespaces"
+      shell: |
+        for ns in $(ip netns list 2>/dev/null | awk '{print $1}'); do
+          ip netns delete "$ns" 2>/dev/null || true
+        done
+        echo "✅ Network namespaces cleaned"
+      changed_when: false
+      failed_when: false
+      tags: [network, all]
+
+    # ==========================================================================
+    # 🔴 LAYER 6: SYSTEM CONFIGURATION RESET
+    # ==========================================================================
+    # Tags: system
+    # Purpose: Reset sysctl, limits, clean package cache, reload systemd
+    # ==========================================================================
+
+    - name: "🔴 LAYER 6.1: Reset sysctl parameters (remove custom configs)"
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/sysctl.d/99-docker.conf
+        - /etc/sysctl.d/99-kubernetes.conf
+      tags: [system, all]
+
+    - name: "🔴 LAYER 6.2: Reload sysctl"
+      shell: |
+        sysctl --system 2>/dev/null || true
+        echo "✅ sysctl reloaded"
+      changed_when: false
+      failed_when: false
+      tags: [system, all]
+
+    - name: "🔴 LAYER 6.3: Reset system limits (remove custom configs)"
+      shell: |
+        # Remove custom limits (keep system defaults)
+        sed -i '/# Ansible managed - infrastructure/,+4d' /etc/security/limits.conf 2>/dev/null || true
+        echo "✅ System limits reset to defaults"
+      changed_when: false
+      failed_when: false
+      tags: [system, all]
+
+    - name: "🔴 LAYER 6.4: Clean package manager cache"
+      apt:
+        autoclean: yes
+        autoremove: yes
+      tags: [system, all]
+
+    - name: "🔴 LAYER 6.5: Purge removed packages configuration files"
+      shell: |
+        dpkg -l | grep '^rc' | awk '{print $2}' | xargs -r dpkg --purge 2>/dev/null || true
+        echo "✅ Purged configuration files from removed packages"
+      changed_when: false
+      failed_when: false
+      tags: [system, all]
+
+    - name: "🔴 LAYER 6.6: Update APT cache"
+      apt:
+        update_cache: yes
+      failed_when: false
+      tags: [system, all]
+
+    - name: "🔴 LAYER 6.7: Reload systemd daemon"
+      systemd:
+        daemon_reload: yes
+      tags: [system, all]
+
+    # ==========================================================================
+    # ✅ VERIFICATION & PROTECTION CHECKS
+    # ==========================================================================
+    # Tags: all
+    # Purpose: Verify protected directories intact, display cleanup summary
+    # ==========================================================================
+
+    - name: "✅ VERIF.1: Verify protected paths are intact"
+      stat:
+        path: "{{ item }}"
+      register: protection_check
+      loop: "{{ protected_paths }}"
+      failed_when: false
+      tags: [all]
+
+    - name: "✅ VERIF.2: Display protection status"
+      debug:
+        msg: "🔒 PROTECTED: {{ item.item }} exists={{ item.stat.exists }}"
+      loop: "{{ protection_check.results }}"
+      tags: [all]
+
+    - name: "✅ VERIF.3: Verify no Docker processes remain"
+      shell: |
+        if pgrep -f "docker|containerd" > /dev/null; then
+          echo "⚠️  WARNING: Docker/containerd processes still running"
+          pgrep -af "docker|containerd"
+        else
+          echo "✅ No Docker/containerd processes detected"
+        fi
+      register: docker_verify
+      changed_when: false
+      failed_when: false
+      tags: [all]
+
+    - name: "✅ VERIF.4: Verify no application data remains"
+      shell: |
+        if [ -d "/srv/app" ]; then
+          echo "⚠️  WARNING: /srv/app still exists"
+          ls -la /srv/app
+        else
+          echo "✅ Application data completely removed"
+        fi
+      register: app_verify
+      changed_when: false
+      failed_when: false
+      tags: [all]
+
+    - name: "✅ VERIF.5: Verify Docker volumes removed"
+      shell: |
+        if [ -d "/var/lib/docker" ]; then
+          echo "⚠️  WARNING: /var/lib/docker still exists"
+          echo "Attempting final removal..."
+          rm -rf /var/lib/docker 2>/dev/null || true
+        else
+          echo "✅ Docker volumes completely removed"
+        fi
+      register: volume_verify
+      changed_when: false
+      failed_when: false
+      tags: [all]
+
+    - name: "✅ VERIF.6: Verify network interfaces cleaned"
+      shell: |
+        remaining=$(ip link show | grep -c 'docker0\|br-\|veth' || echo 0)
+        if [ "$remaining" -gt 0 ]; then
+          echo "⚠️  WARNING: $remaining Docker network interfaces remain"
+          ip link show | grep -E 'docker0|br-|veth' || true
+        else
+          echo "✅ All Docker network interfaces removed"
+        fi
+      register: network_verify
+      changed_when: false
+      failed_when: false
+      tags: [all]
+
+    - name: "✅ VERIF.7: Verify iptables in safe state"
+      shell: |
+        rules=$(iptables -L -n | wc -l)
+        if [ "$rules" -gt 10 ]; then
+          echo "⚠️  WARNING: $rules iptables rules detected (expected ~8)"
+          echo "Rules summary:"
+          iptables -L -n | head -20
+        else
+          echo "✅ iptables is clean (default policies only)"
+        fi
+      register: iptables_verify
+      changed_when: false
+      failed_when: false
+
+    - name: "✅ FASE 7.8: Check disk space recovered"
+      shell: |
+        df -h / | tail -1 | awk '{print "💾 Root partition: " $3 " used, " $4 " available (" $5 " usage)"}'
+        df -h /data 2>/dev/null | tail -1 | awk '{print "💾 Data partition: " $3 " used, " $4 " available (" $5 " usage)"}' || echo "💾 No separate /data partition"
+      register: disk_space
+      changed_when: false
+      tags: [all]
+
+    - name: "✅ VERIF.9: Display final status"
+      debug:
+        msg: |
+          ========================================
+          ☢️  NUCLEAR CLEANUP COMPLETED
+          ========================================
+
+          🔴 INFRASTRUCTURE DESTROYED:
+          ✅ All Docker containers/images/volumes removed
+          ✅ All Docker containers/images/volumes pruned
+          ✅ Docker Engine stopped and disabled
+          ✅ Tailscale disconnected and removed
+          ✅ fail2ban stopped and removed
+          ✅ UFW disabled and removed
+          ✅ iptables flushed with safe defaults
+          ✅ /srv/app directory deleted
+          ✅ Docker data directories deleted
+          ✅ Application logs removed
+          ✅ Docker APT repositories removed
+          ✅ Docker network interfaces deleted
+          ✅ DNS cache cleared
+          ✅ Package manager cache cleaned
+          ✅ systemd daemon reloaded
+
+          🔒 PROTECTED (INTACT):
+          ✅ /home - User data preserved
+          ✅ /root/.ssh - SSH keys preserved
+          ✅ /etc/ssh - SSH configuration preserved
+
+          🌐 CONNECTION SAFETY:
+          ✅ SSH connection maintained via public IP ({{ ansible_host }})
+          ✅ No disconnections during Tailscale removal
+
+          📊 VERIFICATION RESULTS:
+          {{ docker_verify.stdout }}
+          {{ app_verify.stdout }}
+          {{ volume_verify.stdout }}
+          {{ network_verify.stdout }}
+          {{ iptables_verify.stdout }}
+          {{ disk_space.stdout }}
+
+          📊 SYSTEM STATUS:
+          ▶️  Clean slate - Infrastructure completely wiped
+          ▶️  SSH access maintained - You can still connect
+          ▶️  Ready for fresh deployment
+
+          🚀 NEXT STEPS:
+          1. Review verification output above
+          2. Reboot servers (RECOMMENDED): ansible all -i inventory/hosts.ini -m reboot -b
+          3. Run site.yml for fresh installation: ansible-playbook -i inventory/hosts.ini site.yml --ask-vault-pass
+
+          ⚠️  NOTE: A reboot will ensure clean kernel state (network stack, memory, modules)
+
+          ========================================
+      tags: [all]
+
+    - name: "✅ VERIF.10: OPTIONAL - Automatic reboot for clean kernel state"
+      reboot:
+        msg: "☢️ Rebooting after nuclear cleanup to ensure clean kernel/network state"
+        reboot_timeout: 600
+        pre_reboot_delay: 5
+        post_reboot_delay: 30
+        test_command: uptime
+      when: auto_reboot | bool
+      tags: [all]

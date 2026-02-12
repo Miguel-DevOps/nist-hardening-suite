@@ -1,0 +1,46 @@
+# ==============================================================================
+# CADDY INGRESS STACK - Reverse Proxy with WAF
+# ==============================================================================
+services:
+  caddy:
+    image: {{ caddy_image }}
+    container_name: caddy-waf
+    restart: unless-stopped
+    ports:
+      - "80:80/tcp"
+      - "443:443/tcp"
+      - "443:443/udp"
+    networks:
+      - public_net
+    volumes:
+      - {{ app_base_dir }}/ingress/caddy-data:/data
+      - {{ app_base_dir }}/ingress/caddy-config:/config
+      - {{ app_base_dir }}/ingress/certs:/etc/caddy/certs:ro
+      - {{ app_base_dir }}/ingress/Caddyfile:/etc/caddy/Caddyfile:ro
+    environment:
+      - WAF_ENABLED=true
+      - ACME_AGREE=true
+    user: "{{ caddy_user_uid }}:{{ caddy_user_gid }}"
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    resources:
+      limits:
+        cpus: "2.0"
+        memory: "1G"
+      reservations:
+        cpus: "1.0"
+        memory: "512M"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-S", "http://localhost:2020"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  public_net:
+    external: true

@@ -1,0 +1,525 @@
+---
+# ==============================================================================
+# SECURITY ROLE - Firewall & Intrusion Prevention (Production Hardened)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. PRE-REQUISITOS DEL SISTEMA (Debian Fix)
+# ------------------------------------------------------------------------------
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install basic security packages
+  ansible.builtin.apt:
+    name:
+      - ufw
+      - fail2ban
+      - rsyslog  # CRITICAL: Debian "Minimal" needs this for text logs
+    state: present
+
+- name: Ensure rsyslog is running (Fix for Debian Fail2ban crash)
+  ansible.builtin.systemd:
+    name: rsyslog
+    state: started
+    enabled: true
+
+# ------------------------------------------------------------------------------
+# 2. CONFIGURACIÓN SSH (Anti-Desconexiones + Hardening)
+# ------------------------------------------------------------------------------
+- name: Configure SSH ClientAliveInterval (Heartbeat every 60s)
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?ClientAliveInterval'
+    line: 'ClientAliveInterval 60'
+    state: present
+  notify: Restart SSH
+  tags: [nist, ac-2]
+
+- name: Configure SSH ClientAliveCountMax
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?ClientAliveCountMax'
+    line: 'ClientAliveCountMax 3'
+    state: present
+  notify: Restart SSH
+  tags: [nist, ac-2]
+
+- name: Disable password authentication (Force SSH keys only)
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PasswordAuthentication'
+    line: 'PasswordAuthentication no'
+    state: present
+  notify: Restart SSH
+  tags: [nist, ac-2]
+
+- name: Disable root login via password (Allow only with SSH key)
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PermitRootLogin'
+    line: 'PermitRootLogin prohibit-password'
+    state: present
+  notify: Restart SSH
+  tags: [nist, ac-2]
+
+- name: Disable empty passwords
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PermitEmptyPasswords'
+    line: 'PermitEmptyPasswords no'
+    state: present
+  notify: Restart SSH
+  tags: [nist, ac-2]
+
+- name: Disable SSH Protocol 1 (force Protocol 2)
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?Protocol'
+    line: 'Protocol 2'
+    state: present
+  notify: Restart SSH
+  tags: [nist, ac-2]
+
+# ------------------------------------------------------------------------------
+# 3. FAIL2BAN ROBUSTO (Con Whitelist de IPs Públicas y Tailscale)
+# ------------------------------------------------------------------------------
+- name: Configure fail2ban jail.local (Robust config with IP whitelist)
+  ansible.builtin.copy:
+    dest: /etc/fail2ban/jail.local
+    content: |
+      [DEFAULT]
+      # WHITELIST:
+      # 127.0.0.1/8 ::1      -> Localhost
+      # Brain Public IP (from inventory)
+      # Muscle Public IP (from inventory)
+      # {{ tailscale_subnet }}        -> Tailscale subnet (RFC 6598 default)
+      ignoreip = 127.0.0.1/8 ::1 {{ hostvars['brain-hetzner'].public_ip | default('') }} {{ hostvars['muscle-oci-1'].public_ip | default('') }} {{ tailscale_subnet }}
+
+      bantime = 1h
+      findtime = 10m
+      maxretry = 5
+
+      [sshd]
+      enabled = true
+      port = ssh
+      # Use polling backend and explicit logpath (rsyslog guarantees the file exists)
+      backend = polling
+      logpath = /var/log/auth.log
+      mode = aggressive
+      maxretry = 3
+    mode: '0644'
+  notify: Restart fail2ban
+  tags: [nist, ac-2]
+
+- name: Ensure fail2ban is running
+  ansible.builtin.systemd:
+    name: fail2ban
+    state: started
+    enabled: true
+  tags: [nist, ac-2]
+
+# ------------------------------------------------------------------------------
+# 4. ORACLE CLOUD INFRASTRUCTURE (OCI) - FIREWALL KILLSWITCH
+# ------------------------------------------------------------------------------
+# OCI KILLSWITCH - WARNING: This is an aggressive mitigation for Oracle Cloud's
+# intrusive iptables rules that block ports even after UFW configuration.
+#
+# RISK: If Oracle changes their initialization scripts, this killswitch could
+# leave the server without SSH access if UFW fails to start properly.
+#
+# The killswitch:
+# 1. Backs up current iptables rules to /etc/iptables/rules.v{4,6}.backup
+# 2. Flushes all iptables rules (IPv4/IPv6)
+# 3. Disables and masks Oracle Cloud Agent services
+# 4. Persists empty iptables rules via netfilter-persistent
+# 5. Relies on UFW being correctly configured immediately after.
+#
+# If SSH access is lost after applying killswitch, connect via console
+# and restore backup: iptables-restore < /etc/iptables/rules.v4.backup
+#
+# Monitor SSH access after deployment. Consider testing in a staging environment.
+# ------------------------------------------------------------------------------
+
+- name: Verify UFW is installed before OCI killswitch
+  ansible.builtin.command: which ufw
+  changed_when: false
+  when: cloud_provider == 'oci'
+
+- block:
+    - name: Save current iptables rules for failsafe (persistent backup)
+      ansible.builtin.shell:
+        cmd: |
+          mkdir -p /etc/iptables
+          iptables-save > /etc/iptables/rules.v4.backup
+          ip6tables-save > /etc/iptables/rules.v6.backup
+        executable: /bin/bash
+      changed_when: false
+      when: cloud_provider == 'oci'
+
+    - name: Ensure 'at' is installed for Deadman Switch
+      ansible.builtin.apt:
+        name: at
+        state: present
+      when: cloud_provider == 'oci'
+
+    - name: Verify 'atd' service is active for Deadman Switch
+      ansible.builtin.service_facts:
+      when: cloud_provider == 'oci'
+
+    - name: Fail if 'atd' is not running
+      ansible.builtin.fail:
+        msg: "Safety mechanism failed: 'atd' service is required for OCI Killswitch."
+      when:
+        - cloud_provider == 'oci'
+        - ansible_facts.services['atd.service'].state != 'running'
+
+    - name: Schedule Deadman Switch to restore iptables rules in 5 minutes
+      ansible.builtin.shell: |
+        echo "iptables-restore < /etc/iptables/rules.v4.backup && ip6tables-restore < /etc/iptables/rules.v6.backup" | at now + 5 minutes
+      register: deadman_switch_result
+      changed_when: "'scheduled job' in deadman_switch_result.stdout"
+      when: cloud_provider == 'oci'
+
+    - name: Check if iptables has rules (IPv4)
+      ansible.builtin.shell: iptables -S | head -1
+      register: iptables_rules
+      changed_when: false
+
+    - name: Set iptables policies to ACCEPT (IPv4)
+      ansible.builtin.iptables:
+        chain: "{{ item }}"
+        policy: ACCEPT
+      loop:
+        - INPUT
+        - FORWARD
+        - OUTPUT
+      when: iptables_rules.stdout != ""
+
+    - name: Flush iptables rules (IPv4)
+      ansible.builtin.iptables:
+        table: "{{ item.table }}"
+        chain: "{{ item.chain }}"
+        state: flushed
+      loop:
+        - { table: filter, chain: INPUT }
+        - { table: filter, chain: FORWARD }
+        - { table: filter, chain: OUTPUT }
+        - { table: nat, chain: PREROUTING }
+        - { table: nat, chain: INPUT }
+        - { table: nat, chain: OUTPUT }
+        - { table: nat, chain: POSTROUTING }
+        - { table: mangle, chain: PREROUTING }
+        - { table: mangle, chain: INPUT }
+        - { table: mangle, chain: FORWARD }
+        - { table: mangle, chain: OUTPUT }
+        - { table: mangle, chain: POSTROUTING }
+        - { table: raw, chain: PREROUTING }
+        - { table: raw, chain: OUTPUT }
+      when: iptables_rules.stdout != ""
+
+    - name: Remove user-defined iptables chains (IPv4)
+      ansible.builtin.shell: iptables -X
+      when: iptables_rules.stdout != ""
+      changed_when: false
+
+    - name: Check if ip6tables has rules (IPv6)
+      ansible.builtin.shell: ip6tables -S | head -1
+      register: ip6tables_rules
+      changed_when: false
+
+    - name: Set ip6tables policies to ACCEPT (IPv6)
+      ansible.builtin.iptables:
+        chain: "{{ item }}"
+        policy: ACCEPT
+        ip_version: ipv6
+      loop:
+        - INPUT
+        - FORWARD
+        - OUTPUT
+      when: ip6tables_rules.stdout != ""
+
+    - name: Flush ip6tables rules (IPv6)
+      ansible.builtin.iptables:
+        table: "{{ item.table }}"
+        chain: "{{ item.chain }}"
+        state: flushed
+        ip_version: ipv6
+      loop:
+        - { table: filter, chain: INPUT }
+        - { table: filter, chain: FORWARD }
+        - { table: filter, chain: OUTPUT }
+        - { table: nat, chain: PREROUTING }
+        - { table: nat, chain: INPUT }
+        - { table: nat, chain: OUTPUT }
+        - { table: nat, chain: POSTROUTING }
+        - { table: mangle, chain: PREROUTING }
+        - { table: mangle, chain: INPUT }
+        - { table: mangle, chain: FORWARD }
+        - { table: mangle, chain: OUTPUT }
+        - { table: mangle, chain: POSTROUTING }
+        - { table: raw, chain: PREROUTING }
+        - { table: raw, chain: OUTPUT }
+      when: ip6tables_rules.stdout != ""
+
+    - name: Remove user-defined ip6tables chains (IPv6)
+      ansible.builtin.shell: ip6tables -X
+      when: ip6tables_rules.stdout != ""
+      changed_when: false
+
+    - name: Install iptables-persistent (to prevent OCI rules restoration)
+      ansible.builtin.apt:
+        name: iptables-persistent
+        state: present
+      when: cloud_provider == 'oci'
+
+    - name: Verify netfilter-persistent is available
+      ansible.builtin.command: which netfilter-persistent
+      register: netfilter_persistent_check
+      changed_when: false
+      failed_when: netfilter_persistent_check.rc != 0
+      when: cloud_provider == 'oci'
+
+    - name: Create iptables directory (required for netfilter-persistent)
+      ansible.builtin.file:
+        path: /etc/iptables
+        state: directory
+        mode: '0755'
+      when: cloud_provider == 'oci'
+
+    - name: Persist empty iptables rules (override OCI defaults)
+      ansible.builtin.shell: |
+        netfilter-persistent save
+      register: persist_iptables_result
+      when: cloud_provider == 'oci'
+      changed_when: "'saved' in persist_iptables_result.stderr or persist_iptables_result.rc == 0"
+
+    - name: Disable Oracle Cloud network scripts (prevent rules re-injection)
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+        masked: true
+      loop:
+        - oracle-cloud-agent
+        - oracle-cloud-agent-updater
+      when: cloud_provider == 'oci'
+      failed_when: false  # Los servicios pueden no existir en todas las imágenes OCI
+
+    - name: Remove Oracle iptables script (if exists)
+      ansible.builtin.file:
+        path: "/etc/iptables/rules.v4"
+        state: absent
+      when: cloud_provider == 'oci'
+      failed_when: false
+  rescue:
+    - name: Restore iptables rules from backup (UFW failed)
+      ansible.builtin.shell: |
+        iptables-restore < /etc/iptables/rules.v4.backup
+        ip6tables-restore < /etc/iptables/rules.v6.backup
+      register: restore_iptables_result
+      when: cloud_provider == 'oci'
+      changed_when: "restore_iptables_result.rc == 0"
+    - name: Notify admin about OCI killswitch failure
+      ansible.builtin.debug:
+        msg: "OCI killswitch failed, iptables rules restored from backup. Check UFW installation and SSH access."
+
+  tags: [nist, sc-7]
+
+# Deadman Switch: Cancelar tarea at si UFW arranca correctamente (solo OCI)
+- name: List scheduled at jobs (Deadman Switch)
+  ansible.builtin.shell: atq | awk '{print $1}'
+  register: at_jobs
+  changed_when: false
+  when: cloud_provider == 'oci'
+
+- name: Cancel Deadman Switch at job if present
+  ansible.builtin.shell: |
+    for job in {{ at_jobs.stdout_lines | default([]) }}; do
+      atrm "$job"
+    done
+  register: cancel_at_job_result
+  when:
+    - cloud_provider == 'oci'
+    - at_jobs.stdout != ''
+  changed_when: "cancel_at_job_result.rc == 0 and cancel_at_job_result.stdout != ''"
+
+# ------------------------------------------------------------------------------
+# 5. FIREWALL (UFW) - DELEGACIÓN A TAILSCALE
+# ------------------------------------------------------------------------------
+# CRITICAL: Add rules BEFORE enabling UFW to prevent lockout
+
+- name: Allow SSH Public (Brain Only - Rate Limited) - EMERGENCY ACCESS
+  community.general.ufw:
+    rule: limit
+    port: '22'
+    proto: tcp
+    comment: "Rate limited SSH for Management Node (Emergency Access)"
+  when: cloud_provider == 'hetzner'
+  tags: [nist, sc-7]
+
+- name: Allow SSH Public TEMPORARY (During Bootstrap - Until Tailscale configured)
+  community.general.ufw:
+    rule: allow
+    port: '22'
+    proto: tcp
+    comment: "TEMPORARY Bootstrap SSH - Remove after getting Tailscale IP"
+  when:
+    - cloud_provider == 'oci'
+    - not ansible_host.startswith('100.')  # Only during bootstrap (not using Tailscale)
+  tags: [nist, sc-7]
+
+- name: Allow HTTP/HTTPS (Public Access - All servers)
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+    comment: "Web Traffic (HTTP/HTTPS)"
+  loop:
+    - '80'
+    - '443'
+  tags: [nist, sc-7]
+
+- name: Allow SSH via Tailscale VPN (All Nodes)
+  community.general.ufw:
+    rule: allow
+    port: '22'
+    proto: tcp
+    from_ip: "{{ tailscale_subnet }}"
+    comment: "SSH via Tailscale VPN Only"
+  tags: [nist, sc-7]
+
+- name: Allow Tailscale mesh traffic (UDP 41641)
+  community.general.ufw:
+    rule: allow
+    port: '41641'
+    proto: udp
+    comment: "Tailscale WireGuard mesh"
+  tags: [nist, sc-7]
+
+- name: Allow Docker internal networking (bridge mode)
+  community.general.ufw:
+    rule: allow
+    src: 172.0.0.0/8
+    comment: "Docker bridge networks"
+  tags: [nist, sc-7]
+
+- name: Remove temporary SSH public access (After Tailscale configured)
+  community.general.ufw:
+    rule: allow
+    port: '22'
+    proto: tcp
+    delete: true
+    comment: "TEMPORARY Bootstrap SSH - Remove after getting Tailscale IP"
+  when:
+    - cloud_provider == 'oci'
+    - ansible_host.startswith('100.')  # Running via Tailscale IP now
+  failed_when: false  # Don't fail if rule doesn't exist
+  tags: [nist, sc-7]
+
+- name: Enable UFW firewall (after adding all rules)
+  community.general.ufw:
+    state: enabled
+    policy: deny
+  tags: [nist, sc-7]
+
+
+
+- name: Check if Docker service exists (Brain & Muscle)
+  ansible.builtin.service_facts:
+  when: cloud_provider in ['hetzner', 'oci']
+  tags: [docker]
+
+- name: Restart Docker to recreate iptables chains (Brain & Muscle - After OCI Killswitch)
+  ansible.builtin.systemd:
+    name: docker
+    state: restarted
+  when:
+    - cloud_provider in ['hetzner', 'oci']
+    - "'docker.service' in ansible_facts.services"
+  tags: [docker]
+  failed_when: false
+
+- name: Enable packet forwarding in UFW (CRITICAL for Docker + Tailscale)
+  ansible.builtin.lineinfile:
+    path: /etc/default/ufw
+    regexp: '^DEFAULT_FORWARD_POLICY='
+    line: 'DEFAULT_FORWARD_POLICY="ACCEPT"'
+  notify: Reload UFW
+  tags: [nist, sc-7]
+
+- name: Disable IPv6 in UFW (simplify ruleset)
+  ansible.builtin.lineinfile:
+    path: /etc/default/ufw
+    regexp: '^IPV6='
+    line: 'IPV6=no'
+    state: present
+  notify: Reload UFW
+  tags: [nist, sc-7]
+
+- name: Allow Node Exporter metrics via Tailscale
+  community.general.ufw:
+    rule: allow
+    port: '9100'
+    proto: tcp
+    from_ip: "{{ tailscale_subnet }}"
+    comment: "Node Exporter via VPN"
+  tags: [nist, sc-7]
+
+- name: Allow cAdvisor metrics via Tailscale
+  community.general.ufw:
+    rule: allow
+    port: '8080'
+    proto: tcp
+    from_ip: "{{ tailscale_subnet }}"
+    comment: "cAdvisor via VPN"
+  tags: [nist, sc-7]
+# ------------------------------------------------------------------------------
+# 7. NIST CONTROLS IMPLEMENTATION
+# ------------------------------------------------------------------------------
+- name: Include NIST 800-53 control implementations
+  include_tasks: nist.yml
+
+# ------------------------------------------------------------------------------
+# 8. SECURITY SUMMARY
+# ------------------------------------------------------------------------------
+- name: Display security configuration summary
+  ansible.builtin.debug:
+    msg:
+      - "========================================="
+      - "✅ SECURITY CONFIGURATION APPLIED"
+      - "========================================="
+      - ""
+      - "📦 Packages:"
+      - "  - UFW firewall enabled"
+      - "  - Fail2ban active (3 attempts, 1h ban)"
+      - "  - rsyslog running (Debian crash fix)"
+      - ""
+      - "🔐 SSH Hardening:"
+      - "  - Password auth: DISABLED"
+      - "  - Root login: SSH keys only"
+      - "  - Keepalive: 60s interval (anti-disconnect)"
+      - ""
+      - "🛡️  Firewall Rules:"
+      - "  - HTTP/HTTPS: Public (80, 443)"
+      - "  {% if cloud_provider == 'hetzner' %}- SSH: Rate limited public + Tailscale{% endif %}"
+      - "  {% if cloud_provider == 'oci' %}- SSH: Tailscale VPN ONLY (OCI iptables FLUSHED){% endif %}"
+      - "  - Tailscale mesh: UDP 41641"
+      - "  - Docker bridge: 172.0.0.0/8"
+      - ""
+      - "🎯 IP Whitelist (Fail2ban):"
+      - "  - {{ hostvars['brain-hetzner'].public_ip | default('N/A') }} (Brain)"
+      - "  - {{ hostvars['muscle-oci-1'].public_ip | default('N/A') }} (Muscle)"
+      - "  - {{ tailscale_subnet }} (Tailscale subnet)"
+      - ""
+      - "{% if cloud_provider == 'oci' %}🔴 OCI KILLSWITCH APPLIED:{% endif %}"
+      - "{% if cloud_provider == 'oci' %}  - Oracle iptables rules: FLUSHED{% endif %}"
+      - "{% if cloud_provider == 'oci' %}  - Oracle Cloud Agent: DISABLED & MASKED{% endif %}"
+      - "{% if cloud_provider == 'oci' %}  - UFW now controls all filtering{% endif %}"
+      - ""
+      - "⚠️  IMPORTANT:"
+      - "  {% if cloud_provider == 'oci' %}- OCI SSH: Use Tailscale IP ({{ ansible_host }}) ONLY{% endif %}"
+      - "  - Ansible connects via Tailscale mesh"
+      - "  - Public SSH blocked on Muscle nodes"
+      - "========================================="

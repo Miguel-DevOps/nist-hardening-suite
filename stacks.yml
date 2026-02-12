@@ -1,0 +1,29 @@
+---
+# ==============================================================================
+# NIST HARDENING SUITE | Developmi | Miguel Lozano (SRE & FinOps Architect)
+# ==============================================================================
+# CORE STACKS - Application Layer
+# ==============================================================================
+# Propósito: Desplegar la capa de Gestión (Portainer) y Entrada (Caddy).
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. INGRESS STACK (Caddy WAF)
+# ------------------------------------------------------------------------------
+- name: "Deploy Ingress Core (Caddy)"
+  hosts: all
+  become: true
+  tags: [ingress, caddy]
+  roles:
+    - stack_ingress
+# ------------------------------------------------------------------------------
+# 2. PORTAINER MANAGEMENT STACK
+# ------------------------------------------------------------------------------
+# Server en Brain (UI) + Agents en Muscles
+# Configuración: Roles/Stack_Portainer
+- name: "Deploy Portainer Management Stack"
+  hosts: all
+  become: true
+  tags: [portainer, management]
+  roles:
+    - stack_portainer

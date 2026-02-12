@@ -1,0 +1,68 @@
+# yamllint configuration for NIST-Compliant Hardening Suite
+---
+extends: default
+
+rules:
+  # Line length: allow longer lines for readability
+  line-length:
+    max: 120
+    level: warning
+    
+  # Indentation: enforce 2-space indentation
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    check-multi-line-strings: false
+
+  # Comments: require them to be useful
+  comments:
+    min-spaces-from-content: 2
+    require-starting-space: true
+
+  # Brackets: normal spacing
+  brackets:
+    min-spaces-inside: 0
+    max-spaces-inside: 0
+
+  # Colons: normal spacing
+  colons:
+    max-spaces-after: 1
+
+  # Commas: normal spacing
+  commas:
+    max-spaces-after: 1
+
+  # Keys: one key per line
+  key-duplicates:
+    forbid-duplicated-keys: true
+    forbid-repeated-keys: false
+
+  # Hyphens: must have spaces after them
+  hyphens:
+    max-spaces-after: 1
+
+  # Truthy values: forbid YES/NO (use true/false)
+  truthy:
+    allowed: [true, false, "yes", "no"]
+    check-keys: false
+
+  # Document start: optional but recommended with ---
+  document-start: disable
+
+  # Document end: optional
+  document-end: disable
+
+  # New lines: one newline at end of file
+  new-line-at-end-of-file: {}
+
+  # New lines: max 2 blank lines
+  new-lines:
+    type: unix
+
+  # Trailing spaces: forbid them
+  trailing-spaces: {}
+
+  # Empty values: forbid
+  empty-values:
+    forbid-in-block-mappings: true
+    forbid-in-flow-mappings: false

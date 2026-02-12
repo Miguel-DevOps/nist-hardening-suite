@@ -1,0 +1,23 @@
+# ansible-lint configuration for NIST-Compliant Hardening Suite
+---
+extends: default
+
+# Directories to exclude from linting
+exclude_paths:
+  - roles/*/templates/
+  - .github/
+  - docs/
+
+# Files to exclude
+skip_list:
+  # 204: Lines too long (we allow up to 120 chars)
+  - line-too-long
+  # 206: Tasks without names (template-only tasks, rarely applicable)
+  - name[missing]
+  # 301: Jinja2 variables in 'when' conditions (necessary for dynamic conditionals)
+  - jinja[invalid]
+
+# Rules to enforce
+warn_list:
+  # 503: Tasks should have tags (important for selective execution)
+  - missing-tags

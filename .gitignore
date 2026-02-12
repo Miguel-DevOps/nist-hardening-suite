@@ -1,0 +1,176 @@
+#############################################
+# Infrastructure as Code (.gitignore)
+# Terraform / OpenTofu – Cloud Environments
+#############################################
+
+# =================================================
+# Terraform / OpenTofu Core
+# =================================================
+
+# Local working directories for providers and modules
+**/.terraform/
+**/.terraform/*
+
+# Dependency lock file
+.terraform.lock.hcl
+
+# =================================================
+# State Files (CRITICAL - Contains Sensitive Data)
+# =================================================
+
+# Terraform/OpenTofu state files
+# WARNING: May contain sensitive data such as IP addresses, credentials, and secrets
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# =================================================
+# Variable Definitions & Secrets
+# =================================================
+
+# Variable files (often contain secrets)
+*.tfvars
+*.tfvars.json
+
+# Auto-loaded variable files
+*.auto.tfvars
+*.auto.tfvars.json
+
+# Local secret files
+secrets.tf
+secrets.auto.tfvars
+
+# =================================================
+# Override & Local Configuration Files
+# =================================================
+
+# Local override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# =================================================
+# Environment Variables & Secrets
+# =================================================
+
+# Environment variable files
+.env
+.env.*
+*.env
+
+# Shell environment overrides
+.envrc
+
+# =================================================
+# SSH Keys & Certificates
+# =================================================
+
+# SSH private and public keys
+*.pem
+*.pub
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+
+# SSL/TLS certificates
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+
+# =================================================
+# Logs & Crash Reports
+# =================================================
+
+# Crash logs
+crash.log
+crash.*.log
+
+# Generic log files
+*.log
+
+# =================================================
+# CI/CD & Automation Artifacts
+# =================================================
+
+# Terraform plan output files
+*.tfplan
+*.plan
+
+# Ansible sensitive files
+*.vault
+vault.yml
+vault.yaml
+group_vars/*/secrets.yml
+group_vars/*/vault.yml
+host_vars/*/secrets.yml
+host_vars/*/vault.yml
+inventory/*.generated
+inventory/hosts.ini.generated
+inventory/hosts.ini
+
+# =================================================
+# Operating Systems
+# =================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# =================================================
+# IDEs & Editors
+# =================================================
+
+# Visual Studio Code
+.vscode/
+!.vscode/extensions.json
+
+# JetBrains IDEs
+.idea/
+*.iml
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+\#*\#
+.\#*
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# =================================================
+# Documentation & Temporary Files
+# =================================================
+
+# Generated documentation
+terraform-docs.md
+
+# Backup files
+*.bak
+*.tmp
+*.backup
+
+# Temporary directories
+tmp/
+temp/
+
+#############################################
+# End of .gitignore
+#############################################

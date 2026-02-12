@@ -1,0 +1,134 @@
+---
+# ==============================================================================
+# NIST 800-53 CONTROL IMPLEMENTATIONS
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# CM-7: LEAST FUNCTIONALITY - Disable unnecessary filesystems & kernel modules
+# ------------------------------------------------------------------------------
+- name: CM-7 | Blacklist unused filesystem kernel modules
+  community.general.modprobe:
+    name: "{{ item }}"
+    state: absent
+    persistent: present
+  loop:
+    - cramfs
+    - freevxfs
+    - jffs2
+    - hfs
+    - hfsplus
+    - squashfs
+    - udf
+  tags: [nist, cm-7]
+
+- name: CM-7 | Ensure blacklisted modules are loaded (verify)
+  ansible.builtin.shell: lsmod | grep -E "^(cramfs|freevxfs|jffs2|hfs|hfsplus|squashfs|udf)"
+  register: loaded_unused_modules
+  changed_when: false
+  failed_when: loaded_unused_modules.stdout != ""
+  tags: [nist, cm-7]
+
+# ------------------------------------------------------------------------------
+# CM-7: KERNEL HARDENING - sysctl security parameters
+# ------------------------------------------------------------------------------
+- name: CM-7 | Configure kernel security parameters (sysctl)
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_set: true
+    state: present
+    reload: true
+  loop:
+    - { name: net.ipv4.tcp_syncookies, value: '1' }
+    - { name: kernel.randomize_va_space, value: '2' }
+    - { name: net.ipv4.conf.all.rp_filter, value: '1' }
+    - { name: net.ipv4.conf.default.rp_filter, value: '1' }
+    - { name: net.ipv4.icmp_echo_ignore_broadcasts, value: '1' }
+    - { name: net.ipv4.icmp_ignore_bogus_error_responses, value: '1' }
+    - { name: net.ipv4.conf.all.accept_redirects, value: '0' }
+    - { name: net.ipv6.conf.all.accept_redirects, value: '0' }
+    - { name: net.ipv4.conf.all.send_redirects, value: '0' }
+    - { name: net.ipv4.conf.all.accept_source_route, value: '0' }
+    - { name: net.ipv6.conf.all.accept_source_route, value: '0' }
+  tags: [nist, cm-7]
+
+# ------------------------------------------------------------------------------
+# SI-4 & AU-12: SYSTEM MONITORING & AUDIT GENERATION - AuditD configuration
+# ------------------------------------------------------------------------------
+- name: SI-4/AU-12 | Install auditd and auditd-plugins
+  ansible.builtin.apt:
+    name:
+      - auditd
+      - auditd-plugins
+    state: present
+  tags: [nist, si-4, au-12]
+
+- name: SI-4/AU-12 | Configure auditd rules for privileged commands
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/nist-hardening.rules
+    content: |
+      ## NIST 800-53 SI-4 / AU-12 Compliance Rules
+      -a always,exit -F arch=b64 -S execve -k privileged_commands
+      -a always,exit -F arch=b32 -S execve -k privileged_commands
+      -w /etc/passwd -p wa -k identity_management
+      -w /etc/group -p wa -k identity_management
+      -w /etc/shadow -p wa -k identity_management
+      -w /etc/sudoers -p wa -k sudoers_change
+      -w /var/log/auth.log -p wa -k auth_log_tampering
+      -w /etc/ssh/sshd_config -p wa -k ssh_config_change
+      -w /etc/ufw -p wa -k firewall_config
+      -w /etc/docker -p wa -k docker_config
+    mode: '0640'
+  notify: Restart auditd
+  tags: [nist, si-4, au-12]
+
+- name: SI-4/AU-12 | Ensure auditd service is enabled and running
+  ansible.builtin.systemd:
+    name: auditd
+    state: started
+    enabled: true
+  tags: [nist, si-4, au-12]
+
+- name: SI-4/AU-12 | Verify auditd is collecting logs
+  ansible.builtin.command: auditctl -l
+  register: audit_rules
+  changed_when: false
+  failed_when: audit_rules.rc != 0
+  tags: [nist, si-4, au-12]
+
+# ------------------------------------------------------------------------------
+# SC-28: DATA AT REST - Encryption verification (informational)
+# ------------------------------------------------------------------------------
+- name: SC-28 | Audit LUKS status (informational)
+  ansible.builtin.shell: |
+    if command -v lsblk >/dev/null 2>&1; then
+      lsblk -f | grep -q crypto_LUKS && echo "LUKS encryption detected" || echo "No LUKS encryption found"
+    else
+      echo "lsblk not available"
+    fi
+  register: disk_encryption_check
+  changed_when: false
+  tags: [nist, sc-28]
+
+- name: SC-28 | Display encryption status
+  ansible.builtin.debug:
+    msg: "SC-28 Data at Rest (Audit Only): {{ disk_encryption_check.stdout }} - Disk encryption NOT automated, only verification."
+  tags: [nist, sc-28]
+
+# ------------------------------------------------------------------------------
+# NIST Compliance Summary
+# ------------------------------------------------------------------------------
+- name: NIST Controls Applied Summary
+  ansible.builtin.debug:
+    msg:
+      - "✅ NIST 800-53 CONTROLS APPLIED:"
+      - "   • AC‑2  – Account Management (SSH hardening)"
+      - "   • CM‑7  – Least Functionality (filesystems blacklisted)"
+      - "   • SC‑7  – Boundary Protection (UFW firewall)"
+      - "   • SI‑4  – System Monitoring (auditd enabled)"
+      - "   • AU‑12 – Audit Generation (privileged command logging)"
+      - "   • SC‑28 – Data at Rest (secrets encrypted via Ansible Vault, disk encryption AUDIT ONLY - not implemented)"
+      - ""
+      - "📊 Audit trail location: /var/log/audit/audit.log"
+      - "🔧 NIST tags available: ansible-playbook ... --tags nist,cm-7,si-4,au-12,sc-28"
+  tags: [nist]

@@ -1,0 +1,51 @@
+---
+# ==============================================================================
+# COMPLIANCE ROLE - Automated Security Auditing (NIST Compliance)
+# ==============================================================================
+# Installs and runs Lynis security audit tool for compliance verification
+# Optional role - use with --tags compliance
+# ==============================================================================
+
+- name: Install Lynis security auditing tool
+  ansible.builtin.apt:
+    name: lynis
+    state: present
+  tags: [compliance, audit]
+
+- name: Create Lynis audit directory
+  ansible.builtin.file:
+    path: /var/log/lynis
+    state: directory
+    mode: '0755'
+  tags: [compliance, audit]
+
+- name: Run Lynis system audit (non-intrusive)
+  ansible.builtin.command: lynis audit system --quick --no-colors
+  register: lynis_audit
+  changed_when: false
+  tags: [compliance, audit]
+
+- name: Save Lynis audit report
+  ansible.builtin.copy:
+    dest: "/var/log/lynis/audit-{{ ansible_date_time.date }}.log"
+    content: "{{ lynis_audit.stdout }}"
+    mode: '0640'
+  tags: [compliance, audit]
+
+- name: Extract Lynis warnings and suggestions
+  ansible.builtin.shell: |
+    echo "=== LYNIS SECURITY AUDIT SUMMARY ==="
+    echo "{{ lynis_audit.stdout }}" | grep -E "(Warning|Suggestion)" | head -20
+  register: lynis_summary
+  changed_when: false
+  tags: [compliance, audit]
+
+- name: Display compliance audit status
+  ansible.builtin.debug:
+    msg:
+      - "✅ Compliance Audit Completed (NIST Controls)"
+      - "   Tool: Lynis"
+      - "   Report: /var/log/lynis/audit-{{ ansible_date_time.date }}.log"
+      - "   Summary:"
+      - "{{ lynis_summary.stdout_lines | map('regex_replace', '^', '     • ') | join('\n') }}"
+  tags: [compliance, audit]

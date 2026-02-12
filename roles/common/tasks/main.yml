@@ -1,0 +1,112 @@
+---
+# ==============================================================================
+# COMMON ROLE - Base System Configuration
+# ==============================================================================
+
+- name: "🏗️  Starting base system configuration"
+  ansible.builtin.debug:
+    msg: "Configuring base system packages, timezone, locale, and limits"
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install software-properties-common
+  ansible.builtin.apt:
+    name: software-properties-common
+    state: present
+
+- name: Enable Universe repository (Ubuntu)
+  ansible.builtin.command: add-apt-repository -y universe
+  when: ansible_distribution == 'Ubuntu'
+  changed_when: false
+
+- name: Install base system utilities
+  ansible.builtin.apt:
+    name:
+      - curl
+      - wget
+      - git
+      - tar
+      - jq
+      - python3-pip
+      - apt-transport-https
+      - gnupg
+      - ca-certificates
+    state: present
+    update_cache: true
+
+- name: Configure timezone in /etc/environment
+  ansible.builtin.lineinfile:
+    path: /etc/environment
+    line: 'TZ=Etc/UTC'
+    create: true
+    mode: '0644'
+    state: present
+
+- name: Check if swap is currently active
+  ansible.builtin.command: swapon --show
+  register: swap_status
+  changed_when: false
+  failed_when: false
+  when: ansible_swaptotal_mb > 0
+
+- name: Disable active swap
+  ansible.builtin.command: swapoff -a
+  when:
+    - ansible_swaptotal_mb > 0
+    - swap_status.stdout != ""
+  changed_when: swap_status.stdout != ""
+
+- name: Remove swap entries from /etc/fstab
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: '^\s*[^#].*\sswap\s'
+    state: absent
+  when: ansible_swaptotal_mb > 0
+
+- name: Set system locale to en_US.UTF-8
+  community.general.locale_gen:
+    name: en_US.UTF-8
+    state: present
+
+- name: Configure system limits for applications
+  community.general.pam_limits:
+    domain: '*'
+    limit_type: "{{ item.type }}"
+    limit_item: "{{ item.item }}"
+    value: "{{ item.value }}"
+  loop:
+    - { type: 'soft', item: 'nofile', value: '65536' }
+    - { type: 'hard', item: 'nofile', value: '65536' }
+    - { type: 'soft', item: 'nproc', value: '65536' }
+    - { type: 'hard', item: 'nproc', value: '65536' }
+
+- name: Enable automatic security updates
+  ansible.builtin.apt:
+    name: unattended-upgrades
+    state: present
+
+- name: Configure unattended-upgrades for security only
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/50unattended-upgrades
+    content: |
+      Unattended-Upgrade::Allowed-Origins {
+        "${distro_id}:${distro_codename}-security";
+      };
+      Unattended-Upgrade::AutoFixInterruptedDpkg "true";
+      Unattended-Upgrade::MinimalSteps "true";
+      Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+      Unattended-Upgrade::Remove-Unused-Dependencies "true";
+      Unattended-Upgrade::Automatic-Reboot "false";
+    mode: '0644'
+
+- name: Set hostname based on inventory name
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+  when: inventory_hostname != ansible_hostname
+
+- name: "✅ Base system configuration complete"
+  ansible.builtin.debug:
+    msg: "Base system configured: packages, timezone, locale, limits, automatic updates"

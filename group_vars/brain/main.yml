@@ -1,0 +1,19 @@
+---
+# =============================================================================
+# BRAIN SERVER - MAIN CONFIGURATION
+# =============================================================================
+# Variables generales para servidores brain
+# =============================================================================
+
+# Server role identification
+server_role: brain
+server_type: management
+cloud_provider: hetzner
+
+# Monitoring (for future use)
+enable_monitoring: false  # Set to true if you have sufficient resources for VictoriaMetrics, Grafana, Loki, Uptime Kuma
+monitoring_port: 9100
+
+# Backup configuration (for future use)
+enable_backups: true
+backup_retention_days: 30

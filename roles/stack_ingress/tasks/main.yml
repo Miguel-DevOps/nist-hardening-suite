@@ -1,0 +1,142 @@
+---
+# ==============================================================================
+# STACK INGRESS - Caddy Proxy with WAF (STANDALONE MODE)
+# ==============================================================================
+# Responsabilidades:
+#   - Desplegar Caddy como proxy reverso en Brain (Hetzner)
+#   - Bridge network with port mapping (preserves client IP via Docker routing)
+#   - Configurar reverse proxy manual via Caddyfile
+#   - Uso de community.docker.docker_compose_v2
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. PREPARAR DIRECTORIO Y ARCHIVOS
+# ------------------------------------------------------------------------------
+- name: Ensure ingress stack directory exists
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}/ingress"
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Create Caddy data directories for persistent storage
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}/ingress/{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ caddy_user_uid }}"
+    group: "{{ caddy_user_gid }}"
+  loop:
+    - 'caddy-data'
+    - 'caddy-config'
+    - 'certs'
+
+- name: Create Caddyfile for custom configurations
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: "{{ app_base_dir }}/ingress/Caddyfile"
+    mode: '0644'
+    owner: "{{ caddy_user_uid }}"
+    group: "{{ caddy_user_gid }}"
+
+- name: Ensure public_net Docker network exists
+  community.docker.docker_network:
+    name: public_net
+    driver: bridge
+    state: present
+
+- name: Create Docker Compose file for Caddy ingress
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ app_base_dir }}/ingress/docker-compose.yml"
+    mode: '0644'
+    owner: root
+    group: root
+
+# ------------------------------------------------------------------------------
+# 2. AUTENTICACIÓN CON GITHUB CONTAINER REGISTRY
+# ------------------------------------------------------------------------------
+- name: Login to GitHub Container Registry (GHCR)
+  community.docker.docker_login:
+    registry_url: ghcr.io
+    username: "{{ github_username }}"
+    password: "{{ vault_github_token }}"
+    reauthorize: true
+  no_log: true
+
+# ------------------------------------------------------------------------------
+# 3. VERIFICACIÓN DE INTEGRIDAD DE IMAGEN (Supply Chain Security)
+# ------------------------------------------------------------------------------
+- name: Verify Caddy image digest if specified
+  community.docker.docker_image_info:
+    name: "{{ caddy_image }}"
+  register: caddy_image_info
+  when: caddy_image_digest is defined
+
+- name: Fail if digest mismatch
+  ansible.builtin.fail:
+    msg: "Caddy image digest mismatch. Expected {{ caddy_image_digest }}, got {{ caddy_image_info.image.Digest }}"
+  when:
+    - caddy_image_digest is defined
+    - caddy_image_info.image.Digest is defined
+    - caddy_image_info.image.Digest != caddy_image_digest
+
+# ------------------------------------------------------------------------------
+# 4. DESPLEGAR CON DOCKER COMPOSE V2
+# ------------------------------------------------------------------------------
+- name: Deploy Caddy Ingress Stack with Docker Compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ app_base_dir }}/ingress"
+    state: present
+    pull: always
+    recreate: always
+  register: stack_deploy
+
+- name: Wait for Caddy service to be ready
+  ansible.builtin.pause:
+    seconds: 15
+  when: stack_deploy.changed
+
+# ------------------------------------------------------------------------------
+# 4. VALIDAR DESPLIEGUE
+# ------------------------------------------------------------------------------
+- name: Verify Caddy container is running
+  ansible.builtin.command: docker ps --filter name=caddy --format '{{ '{{' }}.Names{{ '}}' }} {{ '{{' }}.Status{{ '}}' }}'
+  register: caddy_status
+  changed_when: false
+
+- name: Check Caddy health endpoint
+  ansible.builtin.uri:
+    url: "http://localhost:2020/health"
+    method: GET
+    status_code: 200
+  retries: 3
+  delay: 5
+  failed_when: false
+
+# ------------------------------------------------------------------------------
+# 5. SUMMARY
+# ------------------------------------------------------------------------------
+- name: Display Caddy Ingress deployment summary
+  ansible.builtin.debug:
+    msg:
+      - "========================================="
+      - "✅ CADDY INGRESS DEPLOYED (STANDALONE)"
+      - "========================================="
+      - ""
+      - "🌐 Mode: Bridge network with port mapping"
+      - "🔧 Image: {{ caddy_image }}"
+      - "🔒 WAF: Enabled (Rate Limiting + ModSecurity rules)"
+      - ""
+      - "📡 Exposed Ports (Bridge Network):"
+      - "  - 80/tcp  → HTTP"
+      - "  - 443/tcp → HTTPS (Auto TLS)"
+      - "  - 2020    → Health Check"
+      - ""
+      - "🔗 Configured Domains:"
+      - "  - example-domain.com → app-backend:8000"
+      - "  - portainer.example.com → portainer:9000 (VPN-only)"
+      - ""
+      - "🏷️  Container Status: {{ caddy_status.stdout }}"
+      - "========================================="

@@ -1,0 +1,85 @@
+---
+- name: Ensure VictoriaMetrics data directory exists (UID 1000)
+  file:
+    path: "{{ app_base_dir }}/observability/victoria-data"
+    state: directory
+    mode: '0755'
+    owner: "1000"
+    group: "1000"
+
+- name: Ensure Grafana data directory exists (UID 472 - Critical fix)
+  file:
+    path: "{{ app_base_dir }}/observability/grafana-data"
+    state: directory
+    mode: '0775'
+    owner: "472"
+    group: "472"
+    recurse: yes
+
+- name: Ensure Loki data directory exists (UID 10001 - Critical fix)
+  file:
+    path: "{{ app_base_dir }}/observability/loki-data"
+    state: directory
+    mode: '0775'
+    owner: "10001"
+    group: "10001"
+    recurse: yes
+
+- name: Ensure Uptime Kuma data directory exists (UID 1000)
+  file:
+    path: "{{ app_base_dir }}/observability/uptime-kuma-data"
+    state: directory
+    mode: '0755'
+    owner: "1000"
+    group: "1000"
+
+- name: Create VictoriaMetrics scrape config (Dynamic Inventory)
+  template:
+    src: victoriametrics-scrape.yml.j2
+    dest: "{{ app_base_dir }}/observability/victoriametrics-scrape.yml"
+    mode: '0644'
+
+- name: Create Loki config
+  copy:
+    dest: "{{ app_base_dir }}/observability/loki-config.yml"
+    content: |
+      auth_enabled: false
+      server:
+        http_listen_port: 3100
+      common:
+        ring:
+          instance_addr: 127.0.0.1
+          kvstore:
+            store: inmemory
+        replication_factor: 1
+        path_prefix: /loki
+      schema_config:
+        configs:
+          - from: 2020-10-24
+            store: tsdb
+            object_store: filesystem
+            schema: v13
+            index:
+              prefix: index_
+              period: 24h
+      storage_config:
+        filesystem:
+          directory: /loki/chunks
+    mode: '0644'
+
+- name: Create Grafana Datasource config
+  copy:
+    dest: "{{ app_base_dir }}/observability/grafana-datasource.yml"
+    content: |
+      apiVersion: 1
+      datasources:
+        - name: VictoriaMetrics
+          type: prometheus
+          url: http://victoria-metrics:8428
+          access: proxy
+          isDefault: true
+        - name: Loki
+          type: loki
+          url: http://loki:3100
+          access: proxy
+    mode: '0644'

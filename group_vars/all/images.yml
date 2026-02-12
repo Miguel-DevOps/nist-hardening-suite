@@ -1,0 +1,59 @@
+# -----------------------------------------------------------------------------
+# REVERSE PROXY & INGRESS
+# -----------------------------------------------------------------------------
+# Custom image namespace (change to your own registry)
+image_namespace: "ghcr.io/miguel-devops"
+caddy_image: "{{ image_namespace }}/caddy-waf:v2.11"
+# Optional SHA256 digest for supply chain verification
+# caddy_image_digest: "sha256:..."
+
+# GitHub Container Registry authentication
+github_username: "MiguelDevOps"
+# -----------------------------------------------------------------------------
+# PORTAINER MANAGEMENT STACK
+# -----------------------------------------------------------------------------
+portainer_server_image: "portainer/portainer-ee:2.33.6"
+portainer_edge_agent_image: "portainer/edge-agent:2.33.6"
+portainer_server_url: "https://{{ groups['brain'][0] }}:9443"  # Brain hostname:9443 (Tailscale DNS)
+portainer_edge_insecure_poll: false  # Set true if using self-signed certs
+
+# ==============================================================================
+# GLOBAL CONFIGURATION - Arquitectura Archipiélago
+# ==============================================================================
+# Variables globales compartidas por todos los nodos
+# Brain (Hetzner): Observabilidad + Ingress
+# Muscle (OCI): Nodos autónomos con stack completo (App+DB+Redis)
+# ==============================================================================
+
+cluster_name: "Archipelago"
+timezone: "UTC"
+
+# -----------------------------------------------------------------------------
+# FILESYSTEM PATHS (Estandarizado)
+# -----------------------------------------------------------------------------
+app_base_dir: "/srv/app"
+
+# Container user IDs (default: first non-root user)
+caddy_user_uid: 1000
+caddy_user_gid: 1000
+
+# -----------------------------------------------------------------------------
+# NETWORK CONFIGURATION (Tailscale Zero Trust)
+# -----------------------------------------------------------------------------
+# MTU optimizado para WAN + encriptación WireGuard
+tailscale_mtu: 1280
+
+# Tailscale Metrics (Exportado para VictoriaMetrics)
+tailscale_metrics_port: 5252
+
+# -----------------------------------------------------------------------------
+# ANSIBLE RUNTIME
+# -----------------------------------------------------------------------------
+ansible_python_interpreter: /usr/bin/python3
+
+# OBSERVABILITY
+victoriametrics_image: "victoriametrics/victoria-metrics:v1.134.0"
+loki_image: "grafana/loki:3.6.4"
+grafana_image: "grafana/grafana:12.3.1"
+node_exporter_image: "prom/node-exporter:v1.10.2"
+cadvisor_image: "gcr.io/cadvisor/cadvisor:v0.49.1"

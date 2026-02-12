@@ -1,0 +1,34 @@
+services:
+  edge_agent:
+    image: {{ portainer_edge_agent_image }}
+    container_name: portainer_edge_agent
+    restart: unless-stopped
+    user: "65534:65534"  # nobody:nogroup - unprivileged user for security
+    environment:
+      - EDGE=1
+      - EDGE_KEY={{ vault_portainer_edge_key }}
+      {% if portainer_edge_insecure_poll %}
+      - EDGE_INSECURE_POLL=1
+      {% endif %}
+      # EDGE_ID is auto-generated if not provided
+      # - EDGE_ID={{ inventory_hostname }}
+      # - CAP_HOST_PID=1  # Optional: for host PID namespace access
+    volumes:
+      # SECURITY NOTE: Docker socket mount is required for container management.
+      # The :ro flag helps but does NOT prevent 'docker run/exec' privilege escalation.
+      # Mitigation: Edge Agent runs as unprivileged user (65534:65534)
+      # and does NOT expose network ports (pull-based communication only via Tailscale).
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/volumes:/var/lib/docker/volumes
+    resources:
+      limits:
+        cpus: "1.0"
+        memory: "512M"
+    networks:
+      - public_net
+    labels:
+      com.docker.stack.namespace: "management"
+
+networks:
+  public_net:
+    external: true

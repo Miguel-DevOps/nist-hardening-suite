@@ -1,0 +1,191 @@
+---
+# ==============================================================================
+# TAILSCALE CLIENT ROLE - VPN Mesh Network
+# ==============================================================================
+
+- name: Enforce Tailscale ACL API key presence (Zero Trust requirement)
+  ansible.builtin.fail:
+    msg: |
+      🚨 TAILSCALE ACL CONFIGURATION REQUIRED
+      tailscale_acl_key is not defined. This leaves the Tailscale network flat and insecure.
+
+      REQUIRED ACTIONS:
+      1. Set 'tailscale_acl_key' in group_vars/all/secrets.yml
+      2. Set 'tailscale_tailnet' to your Tailscale domain (e.g., example.ts.net)
+      3. Review ACL template: roles/tailscale_client/templates/tailscale-acls.json.j2
+
+      Tailscale ACL documentation: https://tailscale.com/kb/1018/acls/
+  when:
+    - "'brain' in group_names"
+    - tailscale_acl_key is not defined or tailscale_tailnet is not defined
+  tags: [tailscale, acl, security]
+
+- name: Determine distribution ID for Tailscale
+  ansible.builtin.set_fact:
+    distro_id: "{{ ansible_distribution | lower }}"
+    distro_release: "{{ ansible_distribution_release }}"
+
+- name: Download Tailscale GPG key
+  ansible.builtin.get_url:
+    url: "https://pkgs.tailscale.com/stable/{{ distro_id }}/{{ distro_release }}.noarmor.gpg"
+    dest: /usr/share/keyrings/tailscale-archive-keyring.gpg
+    mode: '0644'
+  retries: 3
+  delay: 5
+
+- name: Add Tailscale repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/{{ distro_id }} {{ distro_release }} main"
+    filename: tailscale
+    state: present
+    update_cache: true
+
+- name: Install Tailscale (version controlled from vault)
+  ansible.builtin.apt:
+    name: "tailscale={{ tailscale_version | default('*') }}"
+    state: present
+    allow_downgrade: true
+
+- name: Hold Tailscale package to prevent auto-upgrades (only when pinned)
+  ansible.builtin.dpkg_selections:
+    name: tailscale
+    selection: hold
+  when:
+    - tailscale_version is defined
+    - tailscale_version != '*'
+
+- name: Display Tailscale version policy
+  ansible.builtin.debug:
+    msg: >
+      📡 Tailscale version: {{ tailscale_version | default('*') }}
+      {{ '(auto-update enabled)' if (tailscale_version | default('*')) == '*' else '(pinned with dpkg hold)' }}
+
+- name: Install WireGuard kernel modules (Ubuntu)
+  ansible.builtin.apt:
+    name: "linux-modules-extra-{{ ansible_kernel }}"
+    state: present
+  when: ansible_distribution == 'Ubuntu'
+  failed_when: false
+
+- name: Ensure WireGuard module is loaded
+  community.general.modprobe:
+    name: wireguard
+    state: present
+  failed_when: false
+
+- name: Enable IP forwarding (required for VPN routing)
+  ansible.posix.sysctl:
+    name: "{{ item }}"
+    value: '1'
+    sysctl_set: true
+    state: present
+    reload: true
+  loop:
+    - net.ipv4.ip_forward
+    - net.ipv6.conf.all.forwarding
+
+- name: Enable and start Tailscale service
+  ansible.builtin.systemd:
+    name: tailscaled
+    state: started
+    enabled: true
+
+- name: Configure Tailscale daemon flags (Metrics + Performance)
+  ansible.builtin.lineinfile:
+    path: /etc/default/tailscaled
+    regexp: '^FLAGS='
+    line: 'FLAGS="--port={{ tailscale_metrics_port | default(41641) }}"'
+    create: true
+    mode: '0644'
+  notify: Restart Tailscale
+
+- name: Check if Tailscale is already authenticated
+  ansible.builtin.command: tailscale status
+  register: tailscale_status
+  changed_when: false
+  failed_when: false
+
+- name: Authenticate to Tailscale VPN mesh
+  when: tailscale_status.rc != 0
+  block:
+    - name: Configure Tailscale (Zero Trust Architecture)
+      ansible.builtin.command: >
+        tailscale up --authkey=- --ssh=false
+        --accept-routes --hostname={{ inventory_hostname }} --reset
+      args:
+        stdin: "{{ tailscale_auth_key }}"
+      no_log: true
+      register: tailscale_up
+      changed_when: "'Success' in tailscale_up.stdout or 'Logged in' in tailscale_up.stdout"
+      failed_when:
+        - tailscale_up.rc != 0
+        - "'backend not running' not in tailscale_up.stderr"
+      retries: 3
+      delay: 5
+      until: tailscale_up.rc == 0
+
+- name: Get current Tailscale MTU
+  ansible.builtin.shell: ip link show tailscale0 | awk -F 'mtu ' '{print $2}' | awk '{print $1}'
+  register: tailscale_mtu_current
+  changed_when: false
+  failed_when: false
+
+- name: Force Tailscale MTU to {{ tailscale_mtu }} (Prevent WAN Fragmentation)
+  ansible.builtin.command: ip link set dev tailscale0 mtu {{ tailscale_mtu }}
+  when: tailscale_mtu_current.stdout != tailscale_mtu
+  changed_when: true
+  failed_when: false
+
+- name: Make Tailscale MTU persistent (systemd-networkd)
+  ansible.builtin.copy:
+    dest: /etc/systemd/network/10-tailscale.link
+    content: |
+      [Match]
+      OriginalName=tailscale0
+
+      [Link]
+      MTUBytes={{ tailscale_mtu }}
+    mode: '0644'
+  notify: Restart systemd-networkd
+
+- name: Enable Tailscale metrics endpoint (for VictoriaMetrics)
+  ansible.builtin.command: tailscale set --webclient={{ tailscale_metrics_port }}
+  changed_when: false
+  failed_when: false
+
+- name: Verify Tailscale connection
+  ansible.builtin.command: tailscale status --json
+  register: tailscale_verify
+  changed_when: false
+  failed_when: tailscale_verify.rc != 0
+
+- name: Get Tailscale IP address
+  ansible.builtin.command: tailscale ip -4
+  register: tailscale_ip
+  changed_when: false
+
+- name: Display Tailscale connection info
+  ansible.builtin.debug:
+    msg:
+      - "✅ Tailscale VPN Mesh Active"
+      - "   IP: {{ tailscale_ip.stdout }}"
+      - "   MTU: {{ tailscale_mtu }} (optimized for WAN)"
+      - "   Metrics: http://{{ tailscale_ip.stdout }}:{{ tailscale_metrics_port }}/metrics"
+
+- name: Configure Tailscale ACLs (Zero Trust Network Policies)
+  block:
+    - name: Apply Tailscale ACLs via API
+      ansible.builtin.uri:
+        url: "https://api.tailscale.com/api/v2/tailnet/{{ tailscale_tailnet }}/acl"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ tailscale_acl_key }}"
+          Content-Type: "application/json"
+        body_format: json
+        body: "{{ lookup('template', 'tailscale-acls.json.j2') }}"
+        status_code: [200, 201]
+      run_once: true
+      delegate_to: localhost
+  when: "'brain' in group_names"
+  tags: [tailscale, acl, security]
+

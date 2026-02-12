@@ -1,0 +1,29 @@
+global:
+  scrape_interval: 15s # Más agresivo para tiempo real
+  scrape_timeout: 10s
+  external_labels:
+    cluster: '{{ cluster_name }}'
+
+scrape_configs:
+  # --- Node Exporter (Métricas de Host) ---
+  - job_name: 'node-exporter'
+    static_configs:
+{% for host in groups['all'] %}
+      - targets: ['{{ hostvars[host]['ansible_host'] }}:9100']
+        labels:
+          instance: '{{ host }}'
+{% endfor %}
+
+  # --- cAdvisor (Métricas de Contenedores) ---
+  - job_name: 'cadvisor'
+    static_configs:
+{% for host in groups['all'] %}
+      - targets: ['{{ hostvars[host]['ansible_host'] }}:8080']
+        labels:
+          instance: '{{ host }}'
+{% endfor %}
+
+  # --- VictoriaMetrics (Self Monitoring) ---
+  - job_name: 'victoria-metrics'
+    static_configs:
+      - targets: ['localhost:8428']

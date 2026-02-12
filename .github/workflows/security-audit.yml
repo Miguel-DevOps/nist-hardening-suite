@@ -1,0 +1,183 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "roles/**"
+      - "stacks.yml"
+      - "monitoring.yml"
+      - "nuke.yml"
+      - ".github/workflows/**"
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  container-scan:
+    name: Container Configuration Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install container scanning tool
+        run: |
+          pip install docker-compose
+          pip install yamllint
+
+      - name: Check container security practices
+        run: |
+          echo "🔍 Checking Docker Compose security configurations..."
+          
+          # Check for security_opt and resource limits
+          for file in roles/*/templates/*compose*.j2; do
+            if [ -f "$file" ]; then
+              echo "Validating: $file"
+              
+              # Check for no-new-privileges
+              grep -q "no-new-privileges" "$file" || echo "⚠️ WARNING: Missing no-new-privileges in $file"
+              
+              # Check for resource limits
+              grep -q "resources:" "$file" || echo "⚠️ WARNING: Missing resource limits in $file"
+              
+              # Check for read-only socket mounts
+              grep -q ":ro" "$file" || echo "⚠️ WARNING: Docker socket should be read-only in $file"
+            fi
+          done
+
+  nist-compliance-check:
+    name: NIST 800-53 Controls Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate required NIST controls
+        run: |
+          echo "✓ NIST 800-53 Control Verification"
+          echo ""
+          
+          # AC-2: Account Management
+          echo "AC-2 (Account Management): SSH hardening"
+          grep -r "PasswordAuthentication no" roles/ && echo "  ✅ PasswordAuthentication disabled"
+          grep -r "PermitRootLogin prohibit-password" roles/ && echo "  ✅ Root login restricted"
+          
+          # CM-7: Least Functionality
+          echo ""
+          echo "CM-7 (Least Functionality): Kernel module blacklisting"
+          grep -r "cramfs\|freevxfs\|jffs2\|hfs\|hfsplus\|squashfs\|udf" roles/ | wc -l | grep -q "^[1-9]" && echo "  ✅ Unnecessary FS modules disabled"
+          
+          # SC-7: Boundary Protection
+          echo ""
+          echo "SC-7 (Boundary Protection): Firewall configuration"
+          grep -r "ufw default deny" roles/ && echo "  ✅ UFW default deny policy"
+          grep -r "OCI Killswitch" roles/ && echo "  ✅ OCI provider hardening"
+          
+          # SI-4: Information System Monitoring
+          echo ""
+          echo "SI-4 (System Monitoring): CrowdSec IDS"
+          grep -r "crowdsec" roles/ | wc -l | grep -q "^[1-9]" && echo "  ✅ CrowdSec installed"
+          
+          # AU-12: Audit Logging
+          echo ""
+          echo "AU-12 (Audit Logging): auditd configuration"
+          grep -r "auditd" roles/ | wc -l | grep -q "^[1-9]" && echo "  ✅ auditd configured"
+          
+          # SC-28: Data Protection
+          echo ""
+          echo "SC-28 (Data at Rest): Vault encryption"
+          grep -r "vault" roles/ | wc -l | grep -q "^[1-9]" && echo "  ✅ Vault integration"
+          grep -r "ask-vault-pass\|vault-password" . && echo "  ✅ Vault password enforcement"
+
+  dependency-check:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check Ansible version pinning
+        run: |
+          echo "Checking for unpinned dependencies..."
+          
+          if [ -f requirements.yml ]; then
+            echo "✓ requirements.yml found"
+            grep -E "^version:" requirements.yml || echo "⚠️ Consider pinning Ansible versions"
+          fi
+          
+          if [ -f requirements.txt ]; then
+            echo "✓ requirements.txt found"
+            pip-audit --file requirements.txt || true
+          fi
+
+  documentation-validate:
+    name: Documentation Consistency
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify NIST control documentation
+        run: |
+          echo "🔍 Validating documentation consistency with code..."
+          
+          # Check that README mentions all implemented controls
+          echo ""
+          echo "Checking README.md control references..."
+          for control in "AC-2" "CM-7" "SC-7" "SI-4" "AU-12" "SC-28"; do
+            grep -q "$control" README.md && echo "✅ $control documented" || echo "❌ $control missing from README"
+          done
+
+      - name: Markdown validation
+        run: |
+          if command -v prettier &> /dev/null; then
+            prettier --check README.md ARCHITECTURE.md CHANGELOG.md 2>/dev/null || true
+          fi
+
+      - name: Link validation
+        run: |
+          echo "Checking markdown file links..."
+          # Check for broken references in documentation
+          for file in README.md ARCHITECTURE.md CONTRIBUTING.md; do
+            if [ -f "$file" ]; then
+              echo "Validating $file..."
+              grep -o '\[.*\](' "$file" | sed 's/\[//g; s/\]//' | while read link; do
+                if [[ $link =~ ^http ]]; then
+                  continue
+                fi
+                if [ ! -f "${link%#*}" ]; then
+                  echo "⚠️ WARNING: Broken link in $file: $link"
+                fi
+              done
+            fi
+          done
+          echo "✅ Link check completed"

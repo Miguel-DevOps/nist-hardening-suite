@@ -1,0 +1,22 @@
+---
+# =============================================================================
+# MUSCLE SERVERS - MAIN CONFIGURATION
+# =============================================================================
+# Variables generales para servidores muscle (workers)
+# =============================================================================
+
+# Server role identification
+server_role: muscle
+server_type: worker
+cloud_provider: oci
+
+# Worker-specific settings
+worker_enable_autoscaling: false  # For future use
+worker_max_containers: 50         # For future monitoring
+
+# Monitoring (for future use)
+enable_monitoring: true
+monitoring_port: 9100
+
+# Backup configuration (for future use)
+enable_backups: false  # Workers are stateless
