@@ -2,33 +2,34 @@
 # ==============================================================================
 # NIST HARDENING SUITE | Developmi | Miguel Lozano (SRE & FinOps Architect)
 # ==============================================================================
-# CAPA 1: BOOTSTRAP - Sistema Base y VPN
+# LAYER 1: BOOTSTRAP - Base System and VPN
 # ==============================================================================
-# Propósito: Preparar servidores bare metal para Docker standalone
-# Conexión: IPs PÚBLICAS automáticas (usa 'public_ip' de hosts.ini)
-# Pre-requisitos: Servidores aprovisionados con Tofu (Capa 0)
+# Purpose: Prepare bare-metal servers for standalone Docker
+# Connectivity: Automatic PUBLIC IP usage (uses 'public_ip' from hosts.ini)
+# Prerequisites: Servers provisioned with Tofu (Layer 0)
 #
-# Ejecución:
+# Run:
 #   ansible-playbook -i inventory/hosts.ini site.yml --ask-vault-pass
 #
-# Funcionamiento:
-#   - Cada play usa automáticamente la variable 'public_ip' de hosts.ini
-#   - Después de instalar Tailscale, obtiene las IPs VPN (100.x.x.x)
-#   - Usuario debe actualizar hosts.ini manualmente con las IPs Tailscale
-#   - Próximas ejecuciones (stacks.yml) usarán IPs Tailscale
+# Behavior:
+#   - Each play automatically uses the 'public_ip' variable from hosts.ini
+#   - After Tailscale installation, VPN IPs are discovered (100.x.x.x)
+#   - User must update hosts.ini manually with Tailscale IPs
+#   - Future runs (stacks.yml) should use Tailscale IPs
 #
-# Post-ejecución:
-#   1. Verificar IPs Tailscale en el output de FASE 5
-#   2. Editar hosts.ini y cambiar ansible_host por IPs Tailscale (100.x.x.x)
-#   3. Continuar con stacks.yml usando hosts.ini actualizado
+# Post-run:
+#   1. Verify Tailscale IPs in PHASE 5 output
+#   2. Edit hosts.ini and replace ansible_host with Tailscale IPs (100.x.x.x)
+#   3. Continue with stacks.yml using the updated hosts.ini
 # ==============================================================================
 
 # ==============================================================================
-# FASE 0: VALIDACIÓN DE SECRETS
+# PHASE 0: SECRETS VALIDATION
 # ==============================================================================
-- name: "FASE 0: Pre-flight Validation"
+- name: "PHASE 0: Pre-flight Validation"
   hosts: localhost
   gather_facts: true
+  become: false
   tags: [always]
 
   tasks:
@@ -37,15 +38,17 @@
         that:
           - vault_github_token is defined
           - vault_github_token | length > 0
-          - vault_github_username is defined
           - tailscale_auth_key is defined
+          - tailscale_auth_key | length > 0
+          - github_username is defined
+          - github_username | length > 0
         fail_msg: "❌ Vault secrets missing. Run: ansible-vault edit group_vars/all/secrets.yml"
         success_msg: "✅ Vault variables validated"
 
 # ==============================================================================
-# FASE 1: BASE SYSTEM CONFIGURATION
+# PHASE 1: BASE SYSTEM CONFIGURATION
 # ==============================================================================
-- name: "FASE 1: Base System Configuration"
+- name: "PHASE 1: Base System Configuration"
   hosts: all
   become: true
   gather_facts: true
@@ -53,7 +56,7 @@
   tags: [base, system, packages]
 
   pre_tasks:
-    - name: "🔄 BOOTSTRAP: Use public IP (Tailscale not yet configured)"
+    - name: "Bootstrap: Use public IP (Tailscale not yet configured)"
       set_fact:
         ansible_host: "{{ public_ip }}"
       when: public_ip is defined
@@ -63,18 +66,18 @@
     - common
 
 # ==============================================================================
-# FASE 2: SECURITY HARDENING
+# PHASE 2: SECURITY HARDENING
 # ==============================================================================
-- name: "FASE 2: Security & SSH Hardening"
+- name: "PHASE 2: Security & SSH Hardening"
   hosts: all
   become: true
   gather_facts: false
-  strategy: free
+  any_errors_fatal: true
   max_fail_percentage: 0
   tags: [security, firewall, ssh, fail2ban]
 
   pre_tasks:
-    - name: "🔄 BOOTSTRAP: Use public IP (Tailscale not yet configured)"
+    - name: "Bootstrap: Use public IP (Tailscale not yet configured)"
       set_fact:
         ansible_host: "{{ public_ip }}"
       when: public_ip is defined
@@ -84,18 +87,18 @@
     - security
 
 # ==============================================================================
-# FASE 2.5: INTRUSION PREVENTION (CrowdSec)
+# PHASE 2.5: INTRUSION PREVENTION (CrowdSec)
 # ==============================================================================
-- name: "FASE 2.5: Intrusion Prevention System (CrowdSec)"
+- name: "PHASE 2.5: Intrusion Prevention System (CrowdSec)"
   hosts: all
   become: true
-  gather_facts: false
-  strategy: free
+  gather_facts: true
+  any_errors_fatal: true
   max_fail_percentage: 0
   tags: [security, crowdsec, ips, si-4]
 
   pre_tasks:
-    - name: "🔄 BOOTSTRAP: Use public IP (Tailscale not yet configured)"
+    - name: "Bootstrap: Use public IP (Tailscale not yet configured)"
       set_fact:
         ansible_host: "{{ public_ip }}"
       when: public_ip is defined
@@ -105,18 +108,18 @@
     - crowdsec
 
 # ==============================================================================
-# FASE 3: VPN MESH NETWORK
+# PHASE 3: VPN MESH NETWORK
 # ==============================================================================
-- name: "FASE 3: Tailscale VPN Mesh"
+- name: "PHASE 3: Tailscale VPN Mesh"
   hosts: all
   become: true
-  gather_facts: false
-  strategy: free
+  gather_facts: true
+  any_errors_fatal: true
   max_fail_percentage: 0
   tags: [vpn, tailscale, networking]
 
   pre_tasks:
-    - name: "🔄 BOOTSTRAP: Use public IP (Tailscale not yet configured)"
+    - name: "Bootstrap: Use public IP (Tailscale not yet configured)"
       set_fact:
         ansible_host: "{{ public_ip }}"
       when: public_ip is defined
@@ -126,18 +129,18 @@
     - tailscale_client
 
 # ==============================================================================
-# FASE 4: DOCKER ENGINE
+# PHASE 4: DOCKER ENGINE
 # ==============================================================================
-- name: "FASE 4: Docker Engine Installation"
+- name: "PHASE 4: Docker Engine Installation"
   hosts: all
   become: true
   gather_facts: false
-  strategy: free
+  any_errors_fatal: true
   max_fail_percentage: 0
   tags: [docker, containers, runtime]
 
   pre_tasks:
-    - name: "🔄 BOOTSTRAP: Use public IP (Tailscale not yet configured)"
+    - name: "Bootstrap: Use public IP (Tailscale not yet configured)"
       set_fact:
         ansible_host: "{{ public_ip }}"
       when: public_ip is defined
@@ -147,16 +150,16 @@
     - docker
 
 # ==============================================================================
-# FASE 5: BOOTSTRAP VERIFICATION
+# PHASE 5: BOOTSTRAP VERIFICATION
 # ==============================================================================
-- name: "FASE 5: Bootstrap Verification"
+- name: "PHASE 5: Bootstrap Verification"
   hosts: all
   gather_facts: false
   become: true
   tags: [verification, status]
 
   pre_tasks:
-    - name: "🔄 BOOTSTRAP: Use public IP (Tailscale not yet configured)"
+    - name: "Bootstrap: Use public IP (Tailscale not yet configured)"
       set_fact:
         ansible_host: "{{ public_ip }}"
       when: public_ip is defined
@@ -191,6 +194,7 @@
 - name: "Post-Bootstrap Instructions"
   hosts: localhost
   gather_facts: false
+  become: false
   tags: [always]
 
   tasks:
@@ -199,28 +203,28 @@
         msg:
           - ""
           - "=========================================="
-          - "✅ BOOTSTRAP COMPLETED (CAPA 1)"
+          - "BOOTSTRAP COMPLETED (LAYER 1)"
           - "=========================================="
           - ""
-          - "⚠️  ACCIÓN MANUAL REQUERIDA:"
-          - "  1. Copiar inventory:"
+          - "MANUAL ACTION REQUIRED:"
+          - "  1. Copy inventory:"
           - "     cp inventory/hosts.ini.generated inventory/hosts.ini"
           - ""
-          - "  2. Editar hosts.ini y cambiar ansible_host por IPs Tailscale:"
-          - "     brain-hetzner ansible_host=100.85.33.58 ..."
-          - "     muscle-oci-1  ansible_host=100.80.244.63 ..."
+          - "  2. Edit hosts.ini and replace ansible_host with Tailscale IPs:"
+          - "     brain-hetzner ansible_host=100.85.33.58 #IP example ..."
+          - "     muscle-oci-1  ansible_host=100.80.244.63 #IP example ..."
           - ""
-          - "  3. Ejecutar Capa 2 (Orquestación):"
+          - "  3. Run Layer 2 (Orchestration):"
           - "     ansible-playbook -i inventory/hosts.ini stacks.yml --ask-vault-pass"
           - ""
-          - "🔐 Security Status:"
+          - "  Security Status:"
           - "  ✅ SSH password auth DISABLED (keys only)"
           - "  ✅ Fail2ban active (3 attempts = 1h ban)"
           - "  ✅ UFW enabled with Docker ports configured"
           - "  ✅ Tailscale VPN mesh established"
           - ""
-          - "📊 Compliance Audit (Optional):"
-          - "  ⚠️  Run compliance audit with:"
-          - "     ansible-playbook -i inventory/hosts.ini site.yml --tags compliance"
+          - " Compliance Audit (Optional):"
+          - " Run compliance audit with:"
+          - "  ansible-playbook -i inventory/hosts.ini site.yml --tags compliance"
           - ""
           - "=========================================="

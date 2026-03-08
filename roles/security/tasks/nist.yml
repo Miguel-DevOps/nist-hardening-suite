@@ -7,18 +7,64 @@
 # CM-7: LEAST FUNCTIONALITY - Disable unnecessary filesystems & kernel modules
 # ------------------------------------------------------------------------------
 - name: CM-7 | Blacklist unused filesystem kernel modules
+  ansible.builtin.set_fact:
+    nist_modules_to_disable:
+      - cramfs
+      - freevxfs
+      - jffs2
+      - hfs
+      - hfsplus
+      - squashfs
+      - udf
+  tags: [nist, cm-7]
+
+- name: CM-7 | Classify kernel modules as builtin/loadable/missing
+  ansible.builtin.shell: |
+    set -euo pipefail
+    for mod in {{ nist_modules_to_disable | join(' ') }}; do
+      filename="$(modinfo -F filename "$mod" 2>/dev/null || true)"
+      if [ "$filename" = "(builtin)" ]; then
+        echo "$mod:builtin"
+      elif [ -n "$filename" ]; then
+        echo "$mod:loadable"
+      else
+        echo "$mod:missing"
+      fi
+    done
+  args:
+    executable: /bin/bash
+  register: nist_module_classification
+  changed_when: false
+  tags: [nist, cm-7]
+
+- name: CM-7 | Build actionable module lists
+  ansible.builtin.set_fact:
+    nist_modules_loadable: "{{ nist_module_classification.stdout_lines | select('search', ':loadable$') | map('regex_replace', ':loadable$', '') | list }}"
+    nist_modules_builtin: "{{ nist_module_classification.stdout_lines | select('search', ':builtin$') | map('regex_replace', ':builtin$', '') | list }}"
+    nist_modules_missing: "{{ nist_module_classification.stdout_lines | select('search', ':missing$') | map('regex_replace', ':missing$', '') | list }}"
+  tags: [nist, cm-7]
+
+- name: CM-7 | Blacklist unused filesystem kernel modules (loadable only)
   community.general.modprobe:
     name: "{{ item }}"
     state: absent
     persistent: present
-  loop:
-    - cramfs
-    - freevxfs
-    - jffs2
-    - hfs
-    - hfsplus
-    - squashfs
-    - udf
+  loop: "{{ nist_modules_loadable }}"
+  when: nist_modules_loadable | length > 0
+  tags: [nist, cm-7]
+
+- name: CM-7 | Report builtin modules (cannot be unloaded)
+  ansible.builtin.debug:
+    msg: >-
+      CM-7 notice: These modules are builtin in the running kernel and cannot be unloaded via modprobe: {{ nist_modules_builtin | join(', ') }}.
+  when: nist_modules_builtin | length > 0
+  tags: [nist, cm-7]
+
+- name: CM-7 | Report missing modules (not present on this kernel)
+  ansible.builtin.debug:
+    msg: >-
+      CM-7 notice: These modules are not present on the running kernel: {{ nist_modules_missing | join(', ') }}.
+  when: nist_modules_missing | length > 0
   tags: [nist, cm-7]
 
 - name: CM-7 | Ensure blacklisted modules are loaded (verify)
@@ -55,11 +101,11 @@
 # ------------------------------------------------------------------------------
 # SI-4 & AU-12: SYSTEM MONITORING & AUDIT GENERATION - AuditD configuration
 # ------------------------------------------------------------------------------
-- name: SI-4/AU-12 | Install auditd and auditd-plugins
+- name: SI-4/AU-12 | Install auditd and audispd-plugins
   ansible.builtin.apt:
     name:
       - auditd
-      - auditd-plugins
+      - audispd-plugins
     state: present
   tags: [nist, si-4, au-12]
 

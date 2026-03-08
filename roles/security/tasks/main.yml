@@ -198,26 +198,13 @@
       when: iptables_rules.stdout != ""
 
     - name: Flush iptables rules (IPv4)
-      ansible.builtin.iptables:
-        table: "{{ item.table }}"
-        chain: "{{ item.chain }}"
-        state: flushed
-      loop:
-        - { table: filter, chain: INPUT }
-        - { table: filter, chain: FORWARD }
-        - { table: filter, chain: OUTPUT }
-        - { table: nat, chain: PREROUTING }
-        - { table: nat, chain: INPUT }
-        - { table: nat, chain: OUTPUT }
-        - { table: nat, chain: POSTROUTING }
-        - { table: mangle, chain: PREROUTING }
-        - { table: mangle, chain: INPUT }
-        - { table: mangle, chain: FORWARD }
-        - { table: mangle, chain: OUTPUT }
-        - { table: mangle, chain: POSTROUTING }
-        - { table: raw, chain: PREROUTING }
-        - { table: raw, chain: OUTPUT }
+      ansible.builtin.shell: |
+        iptables -F
+        iptables -t nat -F
+        iptables -t mangle -F
+        iptables -t raw -F
       when: iptables_rules.stdout != ""
+      changed_when: true
 
     - name: Remove user-defined iptables chains (IPv4)
       ansible.builtin.shell: iptables -X
@@ -241,27 +228,13 @@
       when: ip6tables_rules.stdout != ""
 
     - name: Flush ip6tables rules (IPv6)
-      ansible.builtin.iptables:
-        table: "{{ item.table }}"
-        chain: "{{ item.chain }}"
-        state: flushed
-        ip_version: ipv6
-      loop:
-        - { table: filter, chain: INPUT }
-        - { table: filter, chain: FORWARD }
-        - { table: filter, chain: OUTPUT }
-        - { table: nat, chain: PREROUTING }
-        - { table: nat, chain: INPUT }
-        - { table: nat, chain: OUTPUT }
-        - { table: nat, chain: POSTROUTING }
-        - { table: mangle, chain: PREROUTING }
-        - { table: mangle, chain: INPUT }
-        - { table: mangle, chain: FORWARD }
-        - { table: mangle, chain: OUTPUT }
-        - { table: mangle, chain: POSTROUTING }
-        - { table: raw, chain: PREROUTING }
-        - { table: raw, chain: OUTPUT }
+      ansible.builtin.shell: |
+        ip6tables -F
+        ip6tables -t nat -F || true
+        ip6tables -t mangle -F
+        ip6tables -t raw -F
       when: ip6tables_rules.stdout != ""
+      changed_when: true
 
     - name: Remove user-defined ip6tables chains (IPv6)
       ansible.builtin.shell: ip6tables -X
@@ -335,15 +308,14 @@
   when: cloud_provider == 'oci'
 
 - name: Cancel Deadman Switch at job if present
-  ansible.builtin.shell: |
-    for job in {{ at_jobs.stdout_lines | default([]) }}; do
-      atrm "$job"
-    done
+  ansible.builtin.command: "atrm {{ item }}"
   register: cancel_at_job_result
+  loop: "{{ at_jobs.stdout_lines | default([]) }}"
   when:
     - cloud_provider == 'oci'
     - at_jobs.stdout != ''
-  changed_when: "cancel_at_job_result.rc == 0 and cancel_at_job_result.stdout != ''"
+  failed_when: false
+  changed_when: cancel_at_job_result.rc == 0
 
 # ------------------------------------------------------------------------------
 # 5. FIREWALL (UFW) - DELEGACIÓN A TAILSCALE

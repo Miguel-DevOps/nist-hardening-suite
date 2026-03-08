@@ -6,6 +6,15 @@
 # Provider-agnostic: works on both Hetzner and OCI
 # ==============================================================================
 
+- name: SI-4 | Validate supported OS and codename for CrowdSec repository
+  ansible.builtin.assert:
+    that:
+      - ansible_distribution in ['Ubuntu', 'Debian']
+      - ansible_distribution_release is defined
+      - ansible_distribution_release | length > 0
+    fail_msg: "Unsupported OS or missing distro codename for CrowdSec repository setup (requires Debian/Ubuntu codename)."
+  tags: [crowdsec, nist, si-4]
+
 - name: SI-4 | Install prerequisites
   ansible.builtin.apt:
     name:
@@ -24,14 +33,16 @@
 
 - name: SI-4 | Add CrowdSec GPG key (modern signed-by method)
   ansible.builtin.get_url:
-    url: https://pkgs.crowdsec.net/gpg.key
+    url: https://packagecloud.io/crowdsec/crowdsec/gpgkey
     dest: /etc/apt/keyrings/crowdsec.asc
     mode: '0644'
+  retries: 3
+  delay: 5
   tags: [crowdsec, nist, si-4]
 
 - name: SI-4 | Add CrowdSec repository (Ubuntu)
   ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/crowdsec.asc] https://pkgs.crowdsec.net/ubuntu {{ ansible_distribution_release }} main"
+    repo: "deb [signed-by=/etc/apt/keyrings/crowdsec.asc] https://packagecloud.io/crowdsec/crowdsec/ubuntu/ {{ ansible_distribution_release }} main"
     state: present
     filename: crowdsec
     update_cache: true
@@ -40,7 +51,7 @@
 
 - name: SI-4 | Add CrowdSec repository (Debian)
   ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/crowdsec.asc] https://pkgs.crowdsec.net/debian {{ ansible_distribution_release }} main"
+    repo: "deb [signed-by=/etc/apt/keyrings/crowdsec.asc] https://packagecloud.io/crowdsec/crowdsec/debian/ {{ ansible_distribution_release }} main"
     state: present
     filename: crowdsec
     update_cache: true
@@ -80,28 +91,24 @@
   notify: Restart CrowdSec
   tags: [crowdsec, nist, si-4]
 
-- name: SI-4 | Configure log acquisition (SSH & auth logs)
+- name: SI-4 | Check whether Caddy log directory exists
+  ansible.builtin.stat:
+    path: /var/log/caddy
+  register: crowdsec_caddy_log_dir
+  tags: [crowdsec, nist, si-4]
+
+- name: SI-4 | Configure log acquisition (SSH/syslog, optional Caddy)
   ansible.builtin.copy:
     dest: /etc/crowdsec/acquis.yaml
     content: |
       filenames:
         - /var/log/auth.log
         - /var/log/syslog
-      
+      {% if crowdsec_caddy_log_dir.stat.exists | default(false) %}
+        - /var/log/caddy/*.log
+      {% endif %}
       labels:
         type: syslog
-      
-      # SSH bruteforce detection
-      - /var/log/auth.log:
-          labels:
-            type: syslog
-            source: ssh
-      
-      # Web application logs (if available)
-      - /var/log/caddy/*.log:
-          labels:
-            type: syslog
-            source: caddy
     mode: '0640'
   notify: Restart CrowdSec
   tags: [crowdsec, nist, si-4]
@@ -113,9 +120,22 @@
   tags: [crowdsec, nist, si-4]
 
 - name: SI-4 | Install firewall bouncer
+  ansible.builtin.command: cscli bouncers list -o raw
+  register: crowdsec_bouncers_list
+  changed_when: false
+  tags: [crowdsec, nist, si-4]
+
+- name: SI-4 | Install firewall bouncer
   ansible.builtin.command: cscli bouncers add firewall-bouncer
   register: bouncer_add
-  changed_when: "'already exists' not in bouncer_add.stderr"
+  when: "'firewall-bouncer' not in crowdsec_bouncers_list.stdout"
+  changed_when: true
+  tags: [crowdsec, nist, si-4]
+
+- name: SI-4 | Validate CrowdSec configuration before service operations
+  ansible.builtin.command: crowdsec -c /etc/crowdsec/config.yaml -t -error
+  register: crowdsec_config_test
+  changed_when: false
   tags: [crowdsec, nist, si-4]
 
 - name: SI-4 | Enable and start CrowdSec service
