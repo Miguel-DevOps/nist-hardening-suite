@@ -3,11 +3,17 @@ services:
     image: {{ portainer_server_image }}
     container_name: portainer
     restart: unless-stopped
+    command:
+      - "--tlscert"
+      - "/certs/portainer.crt"
+      - "--tlskey"
+      - "/certs/portainer.key"
     security_opt:
       - no-new-privileges:true
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - {{ app_base_dir }}/portainer_data:/data
+      - portainer_data:/data
+      - {{ app_base_dir }}/portainer_certs:/certs:ro
     networks:
       - public_net
     ports:
@@ -29,4 +35,9 @@ services:
 
 networks:
   public_net:
+    external: true
+
+volumes:
+  portainer_data:
+    name: portainer_data
     external: true
