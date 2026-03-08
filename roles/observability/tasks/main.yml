@@ -83,3 +83,19 @@
           url: http://loki:3100
           access: proxy
     mode: '0644'
+
+- name: Deploy cAdvisor container (Docker 29 compatible mounts)
+  community.docker.docker_container:
+    name: cadvisor
+    image: "{{ cadvisor_image }}"
+    state: started
+    restart_policy: unless-stopped
+    pull: true
+    published_ports:
+      - "8080:8080"
+    volumes:
+      - "/:/rootfs:ro"
+      - "/var/run:/var/run:ro"
+      - "/sys:/sys:ro"
+      - "/var/lib/docker/:/var/lib/docker:ro"
+      - "/dev/disk/:/dev/disk:ro"

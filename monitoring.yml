@@ -2,8 +2,8 @@
 # ==============================================================================
 # NIST HARDENING SUITE | Optional Observability Stack
 # ==============================================================================
-# Propósito: Desplegar VictoriaMetrics/Grafana/Loki/Uptime Kuma (solo Brain)
-# Nota: Add-on opcional para servidores con recursos suficientes.
+# Purpose: Deploy VictoriaMetrics/Grafana/Loki/Uptime Kuma (Brain only)
+# Note: Optional add-on for servers with sufficient resources.
 # ==============================================================================
 
 - name: "Deploy Observability Stack (Optional Add-on)"

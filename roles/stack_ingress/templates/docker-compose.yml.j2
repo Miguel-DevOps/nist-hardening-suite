@@ -27,13 +27,14 @@ services:
       - NET_BIND_SERVICE
     security_opt:
       - no-new-privileges:true
-    resources:
-      limits:
-        cpus: "2.0"
-        memory: "1G"
-      reservations:
-        cpus: "1.0"
-        memory: "512M"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: "1G"
+        reservations:
+          cpus: "1.0"
+          memory: "512M"
     healthcheck:
       test: ["CMD", "wget", "--spider", "-S", "http://localhost:2020"]
       interval: 30s

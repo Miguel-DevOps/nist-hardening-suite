@@ -18,12 +18,15 @@ services:
       - "{{ tailscale_ip }}:8000:8000"
     labels:
       com.docker.stack.namespace: "management"
-    resources:
-      limits:
-        cpus: "2.0"
-        memory: "2G"
-      reservations:
-        cpus: "1.0"
-        memory: "1G"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: "2G"
+        reservations:
+          cpus: "1.0"
+          memory: "1G"
+
+networks:
   public_net:
     external: true
