@@ -1,6 +1,14 @@
 ---
+- name: Ensure observability base directory exists
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}/observability"
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+
 - name: Ensure VictoriaMetrics data directory exists (UID 1000)
-  file:
+  ansible.builtin.file:
     path: "{{ app_base_dir }}/observability/victoria-data"
     state: directory
     mode: '0755'
@@ -8,25 +16,25 @@
     group: "1000"
 
 - name: Ensure Grafana data directory exists (UID 472 - Critical fix)
-  file:
+  ansible.builtin.file:
     path: "{{ app_base_dir }}/observability/grafana-data"
     state: directory
     mode: '0775'
     owner: "472"
     group: "472"
-    recurse: yes
+    recurse: true
 
 - name: Ensure Loki data directory exists (UID 10001 - Critical fix)
-  file:
+  ansible.builtin.file:
     path: "{{ app_base_dir }}/observability/loki-data"
     state: directory
     mode: '0775'
     owner: "10001"
     group: "10001"
-    recurse: yes
+    recurse: true
 
 - name: Ensure Uptime Kuma data directory exists (UID 1000)
-  file:
+  ansible.builtin.file:
     path: "{{ app_base_dir }}/observability/uptime-kuma-data"
     state: directory
     mode: '0755'
@@ -34,13 +42,13 @@
     group: "1000"
 
 - name: Create VictoriaMetrics scrape config (Dynamic Inventory)
-  template:
+  ansible.builtin.template:
     src: victoriametrics-scrape.yml.j2
     dest: "{{ app_base_dir }}/observability/victoriametrics-scrape.yml"
     mode: '0644'
 
 - name: Create Loki config
-  copy:
+  ansible.builtin.copy:
     dest: "{{ app_base_dir }}/observability/loki-config.yml"
     content: |
       auth_enabled: false
@@ -68,7 +76,7 @@
     mode: '0644'
 
 - name: Create Grafana Datasource config
-  copy:
+  ansible.builtin.copy:
     dest: "{{ app_base_dir }}/observability/grafana-datasource.yml"
     content: |
       apiVersion: 1
