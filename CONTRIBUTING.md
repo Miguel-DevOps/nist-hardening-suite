@@ -122,11 +122,11 @@ See `.github/workflows/` for workflow definitions.
 #### Handling Secrets Correctly
 ```bash
 # ❌ WRONG - This exposes the secret
-vault_portainer_edge_key: "abcd1234xyz"
+portainer_edge_key: "abcd1234xyz"
 
 # ✅ RIGHT - Use Ansible Vault
 ansible-vault encrypt group_vars/all/secrets.yml
-# Then reference: {{ vault_portainer_edge_key }} (decrypted at runtime only)
+# Then reference: {{ portainer_edge_key }} (decrypted at runtime only)
 ```
 
 #### Secret Detection Automated Protection

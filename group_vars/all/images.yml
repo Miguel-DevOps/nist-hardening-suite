@@ -3,7 +3,7 @@
 # -----------------------------------------------------------------------------
 # Custom image namespace (change to your own registry)
 image_namespace: "ghcr.io/miguel-devops"
-caddy_image: "{{ image_namespace }}/caddy-waf:v2.11"
+caddy_image: "{{ image_namespace }}/caddy-waf:v1.0.0" #Pin version for stability (recommended for production)
 # Optional SHA256 digest for supply chain verification
 # caddy_image_digest: "sha256:..."
 
