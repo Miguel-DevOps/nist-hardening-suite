@@ -45,7 +45,7 @@ pip install pre-commit
 pre-commit install
 
 # Install linting tools
-pip install ansible-core==2.16.0 ansible-lint==6.22.2 yamllint==1.35.1 detect-secrets==1.5.0
+pip install ansible-core==2.17.0 ansible-lint==6.22.2 yamllint==1.35.1 detect-secrets==1.5.0
 
 # Install Ansible collections  
 ansible-galaxy collection install -r requirements.yml
