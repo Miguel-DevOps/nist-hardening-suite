@@ -111,6 +111,7 @@ host_vars/*/vault.yml
 inventory/*.generated
 inventory/hosts.ini.generated
 inventory/hosts.ini
+roles/clients/
 
 # =================================================
 # Operating Systems

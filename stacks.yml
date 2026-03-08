@@ -4,7 +4,7 @@
 # ==============================================================================
 # CORE STACKS - Application Layer
 # ==============================================================================
-# Propósito: Desplegar la capa de Gestión (Portainer) y Entrada (Caddy).
+# Purpose: Deploy the management layer (Portainer) and ingress layer (Caddy).
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -19,8 +19,8 @@
 # ------------------------------------------------------------------------------
 # 2. PORTAINER MANAGEMENT STACK
 # ------------------------------------------------------------------------------
-# Server en Brain (UI) + Agents en Muscles
-# Configuración: Roles/Stack_Portainer
+# Server on Brain (UI) + Agents on Muscles
+# Configuration: roles/stack_portainer
 - name: "Deploy Portainer Management Stack"
   hosts: all
   become: true
