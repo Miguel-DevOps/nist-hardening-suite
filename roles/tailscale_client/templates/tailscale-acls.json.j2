@@ -4,6 +4,8 @@
       "action": "accept",
       "src": ["autogroup:admin"],
       "dst": [
+        "brain:22",
+        "muscle:22",
         "tag:brain:22",
         "tag:brain:9000",
         "tag:brain:9443",
@@ -38,7 +40,7 @@
     "tag:muscle": ["autogroup:admin"]
   },
   "hosts": {
-    "brain": "{{ hostvars[groups['brain'][0]].tailscale_ip }}",
-    "muscle": "{{ hostvars[groups['muscle'][0]].tailscale_ip }}"
+    "brain": "{{ ((hostvars[groups['brain'][0]].ansible_facts | default({})).get('ansible_tailscale0', {}).get('ipv4', {}).get('address')) | default(hostvars[groups['brain'][0]].ansible_host, true) }}",
+    "muscle": "{{ ((hostvars[groups['muscle'][0]].ansible_facts | default({})).get('ansible_tailscale0', {}).get('ipv4', {}).get('address')) | default(hostvars[groups['muscle'][0]].ansible_host, true) }}"
   }
 }
