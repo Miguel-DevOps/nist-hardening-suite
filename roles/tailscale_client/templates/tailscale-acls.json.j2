@@ -1,40 +1,47 @@
+{% set acl_operator_sources = ((tailscale_acl_operator_sources | default(['autogroup:admin'])) + (tailscale_acl_operator_sources_extra | default([]))) | unique %}
+{% set acl_automation_sources = ((tailscale_acl_automation_sources | default(acl_operator_sources)) + (tailscale_acl_automation_sources_extra | default([]))) | unique %}
+{% set acl_breakglass_sources = (tailscale_acl_breakglass_sources | default([])) | unique %}
+{% set acl_admin_ui_sources = ((tailscale_acl_admin_ui_sources | default(acl_operator_sources)) + (tailscale_acl_admin_ui_sources_extra | default([]))) | unique %}
+{% set acl_rules = [] %}
+{% if acl_automation_sources | length > 0 %}
+{%   set _ = acl_rules.append({
+      'action': 'accept',
+      'src': acl_automation_sources,
+      'dst': ['brain:22', 'muscle:22', 'tag:brain:22', 'tag:muscle:22']
+    })
+%}
+{% endif %}
+{% if acl_admin_ui_sources | length > 0 %}
+{%   set _ = acl_rules.append({
+      'action': 'accept',
+      'src': acl_admin_ui_sources,
+      'dst': ['tag:brain:9000', 'tag:brain:9443', 'tag:brain:3000', 'tag:brain:8428', 'tag:brain:3100']
+    })
+%}
+{% endif %}
+{% if acl_breakglass_sources | length > 0 %}
+{%   set _ = acl_rules.append({
+      'action': 'accept',
+      'src': acl_breakglass_sources,
+      'dst': ['brain:22', 'muscle:22', 'tag:brain:22', 'tag:muscle:22']
+    })
+%}
+{% endif %}
+{% set _ = acl_rules.append({
+      'action': 'accept',
+      'src': ['tag:brain'],
+      'dst': ['tag:muscle:22', 'tag:muscle:9100', 'tag:muscle:8080', 'tag:muscle:' ~ (tailscale_metrics_port | string)]
+    })
+%}
+{% set _ = acl_rules.append({
+      'action': 'accept',
+      'src': ['tag:muscle'],
+  'dst': ['tag:brain:8000', 'tag:brain:9443', 'tag:brain:9100', 'tag:brain:8080', 'tag:brain:' ~ (tailscale_metrics_port | string)]
+    })
+%}
 {
-  "acls": [
-    {
-      "action": "accept",
-      "src": ["autogroup:admin"],
-      "dst": [
-        "brain:22",
-        "muscle:22",
-        "tag:brain:22",
-        "tag:brain:9000",
-        "tag:brain:9443",
-        "tag:brain:3000",
-        "tag:brain:8428",
-        "tag:brain:3100"
-      ]
-    },
-    {
-      "action": "accept",
-      "src": ["tag:brain"],
-      "dst": [
-        "tag:muscle:22",
-        "tag:muscle:9100",
-        "tag:muscle:8080",
-        "tag:muscle:{{ tailscale_metrics_port }}"
-      ]
-    },
-    {
-      "action": "accept",
-      "src": ["tag:muscle"],
-      "dst": [
-        "tag:brain:8000",
-        "tag:brain:9100",
-        "tag:brain:8080",
-        "tag:brain:{{ tailscale_metrics_port }}"
-      ]
-    }
-  ],
+  "acls": {{ acl_rules | to_json }}{% if (tailscale_acl_groups | default({}) | length) > 0 %},
+  "groups": {{ tailscale_acl_groups | to_json }}{% endif %},
   "tagOwners": {
     "tag:brain": ["autogroup:admin"],
     "tag:muscle": ["autogroup:admin"]
