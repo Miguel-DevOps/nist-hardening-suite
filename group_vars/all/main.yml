@@ -2,3 +2,9 @@
 # Global network defaults
 # Set this if you use Headscale or a custom subnet.
 tailscale_subnet: "100.64.0.0/10"
+
+# Keep dual-stack filtering enabled by default unless your environment is IPv4-only.
+ufw_enable_ipv6: true
+
+# Control persistent Tailscale webclient exposure (:5252).
+tailscale_enable_webclient: false

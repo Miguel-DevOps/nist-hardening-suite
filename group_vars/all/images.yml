@@ -1,57 +1,57 @@
 # -----------------------------------------------------------------------------
 # REVERSE PROXY & INGRESS
 # -----------------------------------------------------------------------------
-# Custom image namespace (change to your own registry)
+# Custom image namespace
 image_namespace: "ghcr.io/miguel-devops"
-caddy_image: "{{ image_namespace }}/caddy-waf:v1.0.0" #Pin version for stability (recommended for production)
-# Optional SHA256 digest for supply chain verification
-# caddy_image_digest: "sha256:..."
+# Caddy image
+caddy_image: "{{ image_namespace }}/caddy-waf:v1.0.0"
+# Optional SHA256 digest for supply chain verification (from secrets)
+# caddy_image_digest: "{{ caddy_image_digest | default('') }}"
 
-# GitHub Container Registry authentication
-github_username: "MiguelDevOps" # Change for private registry or repos
+# -----------------------------------------------------------------------------
+# GITHUB CONTAINER REGISTRY
+# -----------------------------------------------------------------------------
+github_username: "MiguelDevOps"  # Username for private pulls in GHCR
+
 # -----------------------------------------------------------------------------
 # PORTAINER MANAGEMENT STACK
 # -----------------------------------------------------------------------------
 portainer_server_image: "portainer/portainer-ee:2.39.0"
 portainer_edge_agent_image: "portainer/agent:2.39.0"
-portainer_server_url: "https://{{ groups['brain'][0] }}:9443"  # Brain hostname:9443 (Tailscale DNS)
-portainer_edge_insecure_poll: false  # Set true if using self-signed certs
+portainer_server_url: "https://{{ groups['brain'][0] }}:9443"
+portainer_edge_insecure_poll: true
 
-# ==============================================================================
+# -----------------------------------------------------------------------------
 # GLOBAL CONFIGURATION - Archipelago Architecture
-# ==============================================================================
-# Global variables shared across all nodes
-# Brain (Hetzner): Observabilidad + Ingress
-# Muscle (OCI): Autonomous nodes with full stack (App+DB+Redis)
-# ==============================================================================
-
+# -----------------------------------------------------------------------------
 cluster_name: "Archipelago"
 timezone: "UTC"
 
 # -----------------------------------------------------------------------------
 # FILESYSTEM PATHS (Standardized)
 # -----------------------------------------------------------------------------
-app_base_dir: "/srv/app"
+app_base_dir: "/srv/app"  # Base path for container apps
 
-# Container user IDs (default: first non-root user)
-caddy_user_uid: 1000
-caddy_user_gid: 1000
+# -----------------------------------------------------------------------------
+# CONTAINER USER IDs
+# -----------------------------------------------------------------------------
+caddy_user_uid: 1000  # UID for Caddy user
+caddy_user_gid: 1000  # GID for Caddy user
 
 # -----------------------------------------------------------------------------
 # NETWORK CONFIGURATION (Tailscale Zero Trust)
 # -----------------------------------------------------------------------------
-# MTU optimized for WAN + WireGuard encryption
-tailscale_mtu: 1280
-
-# Tailscale metrics (exported to VictoriaMetrics)
-tailscale_metrics_port: 5252
+tailscale_mtu: 1280  # MTU for Tailscale
+tailscale_metrics_port: 5252  # Tailscale metrics port
 
 # -----------------------------------------------------------------------------
 # ANSIBLE RUNTIME
 # -----------------------------------------------------------------------------
-ansible_python_interpreter: /usr/bin/python3
+ansible_python_interpreter: /usr/bin/python3  # Python interpreter for Ansible
 
+# -----------------------------------------------------------------------------
 # OBSERVABILITY
+# -----------------------------------------------------------------------------
 victoriametrics_image: "victoriametrics/victoria-metrics:v1.137.0"
 loki_image: "grafana/loki:3.6.7"
 grafana_image: "grafana/grafana:12.4.0"
