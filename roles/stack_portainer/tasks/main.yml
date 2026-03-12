@@ -31,6 +31,30 @@
   ansible.builtin.set_fact:
     portainer_edge_key_resolved: >-
       {{ portainer_edge_key | default('') | trim }}
+  no_log: true
+
+- name: Resolve Portainer Edge ID (prefer explicit, fallback to machine identity)
+  ansible.builtin.set_fact:
+    portainer_edge_id_resolved: >-
+      {{
+        (
+          portainer_edge_id
+          | default(ansible_machine_id | default(inventory_hostname), true)
+        )
+        | string
+        | trim
+      }}
+  when: "'muscle' in group_names"
+
+- name: Validate resolved Portainer Edge ID
+  ansible.builtin.assert:
+    that:
+      - portainer_edge_id_resolved is defined
+      - portainer_edge_id_resolved | length > 0
+    fail_msg: "Portainer Edge ID is required and could not be resolved. Define portainer_edge_id in vaulted vars."
+  when:
+    - "'muscle' in group_names"
+    - portainer_edge_key_resolved | length > 0
 
 - name: Inform skip when Edge key is missing
   ansible.builtin.debug:
@@ -222,6 +246,7 @@
     src: portainer-edge-agent.yml.j2
     dest: "{{ app_base_dir }}/portainer_agent/docker-compose.yml"
     mode: '0640'
+  no_log: true
   when:
     - "'muscle' in group_names"
     - portainer_edge_key_resolved | length > 0
@@ -234,6 +259,16 @@
   when:
     - "'muscle' in group_names"
     - portainer_edge_key_resolved | length > 0
+
+- name: Verify EDGE_INSECURE_POLL is effectively applied (self-signed mode)
+  ansible.builtin.shell: >-
+    docker inspect portainer_edge_agent --format '{{ '{{' }}range .Config.Env{{ '}}' }}{{ '{{' }}println .{{ '}}' }}{{ '{{' }}end{{ '}}' }}' |
+    grep -qx 'EDGE_INSECURE_POLL=1'
+  changed_when: false
+  when:
+    - "'muscle' in group_names"
+    - portainer_edge_key_resolved | length > 0
+    - portainer_edge_insecure_poll | bool
 
 - name: Portainer Edge Agent Security Notice (Reduced Attack Surface)
   ansible.builtin.debug:
