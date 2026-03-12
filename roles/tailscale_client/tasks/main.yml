@@ -142,10 +142,12 @@
   when: tailscale_status.rc != 0
   block:
     - name: Configure Tailscale (Zero Trust Architecture)
-      ansible.builtin.command: >
-        tailscale up --authkey={{ tailscale_auth_key | trim }} --ssh=false
-        --accept-routes --hostname={{ inventory_hostname }}
-        --advertise-tags={{ tailscale_acl_tag }} --reset
+      ansible.builtin.command:
+        cmd: >
+          tailscale up --authkey=- --ssh=false
+          --accept-routes --hostname={{ inventory_hostname }}
+          --advertise-tags={{ tailscale_acl_tag }} --reset
+        stdin: "{{ tailscale_auth_key | trim }}"
       no_log: true
       register: tailscale_up
       changed_when: "'Success' in tailscale_up.stdout or 'Logged in' in tailscale_up.stdout"
@@ -240,8 +242,8 @@
     mode: '0644'
   notify: Restart systemd-networkd
 
-- name: Enable Tailscale metrics endpoint (for VictoriaMetrics)
-  ansible.builtin.command: tailscale set --webclient=true
+- name: Enforce Tailscale webclient state
+  ansible.builtin.command: "tailscale set --webclient={{ 'true' if (tailscale_enable_webclient | bool) else 'false' }}"
   register: tailscale_webclient
   changed_when: false
   failed_when: tailscale_webclient.rc != 0
