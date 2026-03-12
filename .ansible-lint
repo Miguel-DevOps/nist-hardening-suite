@@ -1,7 +1,5 @@
 # ansible-lint configuration for NIST-Compliant Hardening Suite
 ---
-extends: default
-
 # Directories to exclude from linting
 exclude_paths:
   - roles/*/templates/

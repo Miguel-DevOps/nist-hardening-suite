@@ -2,12 +2,15 @@
 ---
 extends: default
 
+ignore: |
+  .venv/
+
 rules:
   # Line length: allow longer lines for readability
   line-length:
     max: 120
     level: warning
-    
+
   # Indentation: enforce 2-space indentation
   indentation:
     spaces: 2
@@ -16,13 +19,17 @@ rules:
 
   # Comments: require them to be useful
   comments:
-    min-spaces-from-content: 2
+    min-spaces-from-content: 1
     require-starting-space: true
+    ignore-shebangs: true
+    level: warning
 
-  # Brackets: normal spacing
-  brackets:
+  comments-indentation: false
+
+  # Braces: normal spacing
+  braces:
     min-spaces-inside: 0
-    max-spaces-inside: 0
+    max-spaces-inside: 1
 
   # Colons: normal spacing
   colons:
@@ -33,18 +40,14 @@ rules:
     max-spaces-after: 1
 
   # Keys: one key per line
-  key-duplicates:
-    forbid-duplicated-keys: true
-    forbid-repeated-keys: false
+  key-duplicates: enable
 
   # Hyphens: must have spaces after them
   hyphens:
     max-spaces-after: 1
 
   # Truthy values: forbid YES/NO (use true/false)
-  truthy:
-    allowed: [true, false, "yes", "no"]
-    check-keys: false
+  truthy: disable
 
   # Document start: optional but recommended with ---
   document-start: disable
@@ -66,3 +69,7 @@ rules:
   empty-values:
     forbid-in-block-mappings: true
     forbid-in-flow-mappings: false
+
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true

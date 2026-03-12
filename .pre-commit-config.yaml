@@ -32,7 +32,7 @@ repos:
     rev: v6.22.2
     hooks:
       - id: ansible-lint
-        files: ^(playbooks|roles|stacks|monitoring|nuke)\.yml$
+        files: ^(site|stacks|monitoring|nuke)\.yml$|^roles/.*\.yml$|^group_vars/.*\.yml$
         args: [--fix]
 
   # YAML validation with strict rules
