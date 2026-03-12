@@ -1,11 +1,17 @@
 # -----------------------------------------------------------------------------
+# NON-SECRET IMAGE PINNING & DEPLOYMENT DEFAULTS
+# -----------------------------------------------------------------------------
+# Keep image tags, package pins, and other non-sensitive defaults here.
+# Keep tokens, API keys, and privacy-sensitive tenant data in secrets.yml.
+
+# -----------------------------------------------------------------------------
 # REVERSE PROXY & INGRESS
 # -----------------------------------------------------------------------------
 # Custom image namespace
 image_namespace: "ghcr.io/miguel-devops"
 # Caddy image
 caddy_image: "{{ image_namespace }}/caddy-waf:v1.0.0"
-# Optional SHA256 digest for supply chain verification (from secrets)
+# Optional SHA256 digest for supply chain verification (keep with image pinning here)
 # caddy_image_digest: "{{ caddy_image_digest | default('') }}"
 
 # -----------------------------------------------------------------------------
@@ -31,6 +37,21 @@ timezone: "UTC"
 # FILESYSTEM PATHS (Standardized)
 # -----------------------------------------------------------------------------
 app_base_dir: "/srv/app"  # Base path for container apps
+
+# -----------------------------------------------------------------------------
+# RUNTIME PACKAGE PINNING
+# -----------------------------------------------------------------------------
+# Docker Engine package versions must stay explicit for reproducibility.
+docker_version_map:
+  Debian:
+    bookworm: "5:27.5.1-1~debian.12~bookworm"
+    bullseye: "5:27.5.1-1~debian.11~bullseye"
+  Ubuntu:
+    jammy: "5:27.5.1-1~ubuntu.22.04~jammy"
+    noble: "5:27.5.1-1~ubuntu.24.04~noble"
+
+# Use "*" to track the latest stable Tailscale package, or pin a specific version.
+tailscale_version: "*"
 
 # -----------------------------------------------------------------------------
 # CONTAINER USER IDs
