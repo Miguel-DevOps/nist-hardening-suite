@@ -1,7 +1,20 @@
 {
-    email admin@example.com
+    # SC-7 | Admin API restricted to localhost only (never exposed publicly)
+    admin localhost:2019
+
+    email {{ caddy_acme_email | default('admin@example.com') }}
     order coraza_waf first
     order rate_limit before basicauth
+
+    # AU-12/SI-4 | Structured JSON access logs to /var/log/caddy (CrowdSec + AuditD)
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size 100mb
+            roll_keep 5
+            roll_keep_for 720h
+        }
+        format json
+    }
 
     # 🛡️ CLOUDFLARE REAL IP RESTORATION
     servers {

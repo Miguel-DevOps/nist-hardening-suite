@@ -73,14 +73,14 @@
       common:
         log_level: info
         daemonize: true
-      
+
       cscli:
         output: human
-      
+
       crowdsec_service:
         acquisition_path: /etc/crowdsec/acquis.yaml
         parser_routines: 1
-      
+
       api:
         client:
           credentials_path: /etc/crowdsec/local_api_credentials.yaml
@@ -91,24 +91,23 @@
   notify: Restart CrowdSec
   tags: [crowdsec, nist, si-4]
 
-- name: SI-4 | Check whether Caddy log directory exists
-  ansible.builtin.stat:
-    path: /var/log/caddy
-  register: crowdsec_caddy_log_dir
-  tags: [crowdsec, nist, si-4]
-
-- name: SI-4 | Configure log acquisition (SSH/syslog, optional Caddy)
+- name: SI-4 | Configure log acquisition (syslog/auth + Caddy structured logs)
   ansible.builtin.copy:
     dest: /etc/crowdsec/acquis.yaml
     content: |
+      ---
+      # syslog / SSH logs
       filenames:
         - /var/log/auth.log
         - /var/log/syslog
-      {% if crowdsec_caddy_log_dir.stat.exists | default(false) %}
-        - /var/log/caddy/*.log
-      {% endif %}
       labels:
         type: syslog
+      ---
+      # Caddy structured JSON access logs (SI-4 / AU-12)
+      filenames:
+        - /var/log/caddy/*.log
+      labels:
+        type: caddy
     mode: '0640'
   notify: Restart CrowdSec
   tags: [crowdsec, nist, si-4]
@@ -119,13 +118,13 @@
     creates: /etc/crowdsec/local_api_credentials.yaml
   tags: [crowdsec, nist, si-4]
 
-- name: SI-4 | Install firewall bouncer
+- name: SI-4 | List CrowdSec bouncers
   ansible.builtin.command: cscli bouncers list -o raw
   register: crowdsec_bouncers_list
   changed_when: false
   tags: [crowdsec, nist, si-4]
 
-- name: SI-4 | Install firewall bouncer
+- name: SI-4 | Register firewall bouncer
   ansible.builtin.command: cscli bouncers add firewall-bouncer
   register: bouncer_add
   when: "'firewall-bouncer' not in crowdsec_bouncers_list.stdout"
@@ -152,11 +151,17 @@
     enabled: true
   tags: [crowdsec, nist, si-4]
 
-- name: SI-4 | Download security collections
+- name: SI-4 | Install base security collection (Linux)
   ansible.builtin.command: cscli collections install crowdsecurity/linux
-  register: collections_install
-  changed_when: "'already installed' not in collections_install.stdout"
+  register: collections_linux
+  changed_when: "'already installed' not in collections_linux.stdout"
   tags: [crowdsec, nist, si-4]
+
+- name: SI-4 | Install Caddy log parser collection (AU-12)
+  ansible.builtin.command: cscli collections install crowdsecurity/caddy
+  register: collections_caddy
+  changed_when: "'already installed' not in collections_caddy.stdout"
+  tags: [crowdsec, nist, si-4, au-12]
 
 - name: SI-4 | Configure hybrid signal sharing (optional - requires console API key)
   block:
@@ -164,7 +169,7 @@
       ansible.builtin.assert:
         that: crowdsec_console_key is defined
         msg: "CrowdSec console key not defined. Set 'crowdsec_console_key' in vault for hybrid signal sharing."
-    
+
     - name: Enroll in CrowdSec Console for hybrid signal sharing
       ansible.builtin.command: cscli console enroll {{ crowdsec_console_key }}
       args:
@@ -183,12 +188,12 @@
 - name: SI-4 | Display CrowdSec status
   ansible.builtin.debug:
     msg:
-      - "✅ CrowdSec IPS Active (NIST SI‑4)"
+      - "CrowdSec IPS Active (NIST SI-4)"
       - "   Version: {{ crowdsec_version.stdout }}"
       - "   Mode: {{ 'Hybrid (console enrolled)' if crowdsec_console_key is defined else 'Local detection' }}"
-      - "   Collections: crowdsecurity/linux"
+      - "   Collections: crowdsecurity/linux, crowdsecurity/caddy"
       - "   Bouncer: crowdsec-firewall-bouncer-iptables"
-      - "   Logs monitored: /var/log/auth.log, /var/log/syslog"
+      - "   Logs monitored: /var/log/auth.log, /var/log/syslog, /var/log/caddy/*.log"
   tags: [crowdsec, nist, si-4]
 
 - name: SI-4 | Deploy CrowdSec monitoring script
@@ -204,7 +209,7 @@
   ansible.builtin.debug:
     msg:
       - ""
-      - "📊 CrowdSec Monitoring Available:"
+      - "CrowdSec Monitoring Available:"
       - "   Run: monitor-crowdsec --status"
       - "   JSON output: monitor-crowdsec --json"
       - "   For extended monitoring features, refer to project documentation."

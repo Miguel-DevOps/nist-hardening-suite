@@ -2,6 +2,54 @@
 
 All notable changes to NIST Hardening Suite are documented here.
 
+## [1.3.1] - 2026-03-12
+
+### Bug Fixes - Caddy Security Integration Audit (NIST 800-53)
+
+Resolves all findings from the internal security audit of Caddy's integration into the hardening suite.
+No breaking changes; all fixes are backwards-compatible.
+
+#### AC-2 - Account Management
+- **Fixed:** Caddy container was running under UID 1000 (default system user), not a dedicated service account.
+  The `stack_ingress` role now creates a `caddy` system user (`--system --no-create-home --shell /usr/sbin/nologin`)
+  before provisioning directories, and overrides `caddy_user_uid`/`caddy_user_gid` facts from the actual system user
+  via `ansible.builtin.getent` at runtime. The container's `user:` field is aligned to the host service account identity.
+- **Fixed:** Added explicit host directories `/etc/caddy` and `/var/www/html` with ownership bound to `caddy`
+  to satisfy least-privilege filesystem ownership checks in hardened environments.
+
+#### AU-12 - Audit Generation
+- **Fixed:** AuditD had no rules covering Caddy configuration or log files.
+  Added `auditd` watch rules for `{{ app_base_dir }}/ingress/Caddyfile`, `{{ app_base_dir }}/ingress/`,
+  and `/var/log/caddy` (keys: `caddy_config_change`, `caddy_stack_change`, `caddy_log_tampering`).
+- **Fixed:** Caddyfile deployed with world-readable `mode: '0644'`; corrected to `'0640'`.
+
+#### SI-4 - System Monitoring (CrowdSec)
+- **Fixed:** `/var/log/caddy` was never created on the host, causing Caddy log monitoring to be skipped.
+  The `stack_ingress` role now provisions `/var/log/caddy` owned by the `caddy` service user (`mode: '0750'`).
+- **Fixed:** Caddy logs were routed only to Docker's `json-file` runtime; now also bind-mounted to
+  `/var/log/caddy` on the host so CrowdSec, AuditD, and forensic reviews can access them directly.
+- **Fixed:** CrowdSec log acquisition now includes explicit sources for both `syslog` and `caddy` log types.
+- **Fixed:** Added `cscli collections install crowdsecurity/caddy` so CrowdSec can parse Caddy JSON logs.
+
+#### SC-7 - Boundary Protection
+- **Fixed:** Caddy admin API (`:2019`) was not explicitly restricted in global config.
+  Added `admin localhost:2019` to confine it to loopback.
+
+#### SC-28 / Configuration Hygiene
+- **Fixed:** ACME `email` directive was hardcoded as `admin@example.com`.
+  Replaced with `{{ caddy_acme_email | default('admin@example.com') }}` and documented
+  `caddy_acme_email` in `group_vars/all/secrets.yml.example`.
+- **Fixed:** Caddy global block now writes structured JSON logs to `/var/log/caddy/access.log`
+  with rotation (`100mb`, 5 files, 720h retention).
+
+#### Variables / Docs
+- Updated `group_vars/all/images.yml` comments to clarify that `caddy_user_uid`/`caddy_user_gid`
+  are fallback defaults overridden at runtime by `stack_ingress` (AC-2).
+- Updated `group_vars/all/secrets.yml.example` with `caddy_acme_email` and updated UID/GID comments.
+
+---
+
+
 ## [1.3.0] - 2026-03-12
 
 ### Highlights

@@ -128,6 +128,18 @@
   notify: Restart auditd
   tags: [nist, si-4, au-12]
 
+- name: AU-12 | Add auditd rules for Caddy configuration and log integrity
+  ansible.builtin.lineinfile:
+    path: /etc/audit/rules.d/nist-hardening.rules
+    line: "{{ item }}"
+    state: present
+  loop:
+    - "-w {{ app_base_dir }}/ingress/Caddyfile -p wa -k caddy_config_change"
+    - "-w {{ app_base_dir }}/ingress -p wa -k caddy_stack_change"
+    - "-w /var/log/caddy -p wa -k caddy_log_tampering"
+  notify: Restart auditd
+  tags: [nist, au-12]
+
 - name: SI-4/AU-12 | Ensure auditd service is enabled and running
   ansible.builtin.systemd:
     name: auditd
@@ -168,12 +180,12 @@
   ansible.builtin.debug:
     msg:
       - "✅ NIST 800-53 CONTROLS APPLIED:"
-      - "   • AC‑2  – Account Management (SSH hardening)"
-      - "   • CM‑7  – Least Functionality (filesystems blacklisted)"
-      - "   • SC‑7  – Boundary Protection (UFW firewall)"
-      - "   • SI‑4  – System Monitoring (auditd enabled)"
-      - "   • AU‑12 – Audit Generation (privileged command logging)"
-      - "   • SC‑28 – Data at Rest (secrets encrypted via Ansible Vault, disk encryption AUDIT ONLY - not implemented)"
+      - "   • AC-2  - Account Management (SSH hardening)"
+      - "   • CM-7  - Least Functionality (filesystems blacklisted)"
+      - "   • SC-7  - Boundary Protection (UFW firewall)"
+      - "   • SI-4  - System Monitoring (auditd enabled)"
+      - "   • AU-12 - Audit Generation (privileged commands + Caddy config/log integrity)"
+      - "   • SC-28 - Data at Rest (secrets encrypted via Ansible Vault, disk encryption AUDIT ONLY - not implemented)"
       - ""
       - "📊 Audit trail location: /var/log/audit/audit.log"
       - "🔧 NIST tags available: ansible-playbook ... --tags nist,cm-7,si-4,au-12,sc-28"

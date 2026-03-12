@@ -10,8 +10,44 @@
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
+# 0. USUARIO DE SERVICIO DEDICADO (AC-2 | NIST 800-53)
+# ------------------------------------------------------------------------------
+- name: AC-2 | Ensure dedicated caddy system user exists (no shell, no home)
+  ansible.builtin.user:
+    name: caddy
+    system: true
+    create_home: false
+    shell: /usr/sbin/nologin
+    comment: "Caddy web server service account"
+  tags: [nist, ac-2]
+
+- name: AC-2 | Retrieve caddy system user info
+  ansible.builtin.getent:
+    database: passwd
+    key: caddy
+  tags: [nist, ac-2]
+
+- name: AC-2 | Set caddy UID/GID facts from system user (overrides images.yml defaults)
+  ansible.builtin.set_fact:
+    caddy_user_uid: "{{ ansible_facts.getent_passwd['caddy'][1] }}"
+    caddy_user_gid: "{{ ansible_facts.getent_passwd['caddy'][2] }}"
+  tags: [nist, ac-2]
+
+# ------------------------------------------------------------------------------
 # 1. PREPARAR DIRECTORIO Y ARCHIVOS
 # ------------------------------------------------------------------------------
+- name: CM-7/SC-28 | Ensure Caddy host directories exist with least-privilege ownership
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ item.mode }}"
+    owner: "{{ caddy_user_uid }}"
+    group: "{{ caddy_user_gid }}"
+  loop:
+    - { path: '/etc/caddy', mode: '0750' }
+    - { path: '/var/www/html', mode: '0755' }
+  tags: [nist, cm-7, sc-28]
+
 - name: Ensure ingress stack directory exists
   ansible.builtin.file:
     path: "{{ app_base_dir }}/ingress"
@@ -32,11 +68,20 @@
     - 'caddy-config'
     - 'certs'
 
+- name: AU-12/SI-4 | Create Caddy host log directory (for CrowdSec and AuditD)
+  ansible.builtin.file:
+    path: /var/log/caddy
+    state: directory
+    mode: '0750'
+    owner: "{{ caddy_user_uid }}"
+    group: "{{ caddy_user_gid }}"
+  tags: [nist, au-12, si-4]
+
 - name: Create Caddyfile for custom configurations
   ansible.builtin.template:
     src: Caddyfile.j2
     dest: "{{ app_base_dir }}/ingress/Caddyfile"
-    mode: '0644'
+    mode: '0640'
     owner: "{{ caddy_user_uid }}"
     group: "{{ caddy_user_gid }}"
 

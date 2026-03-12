@@ -35,8 +35,11 @@ app_base_dir: "/srv/app"  # Base path for container apps
 # -----------------------------------------------------------------------------
 # CONTAINER USER IDs
 # -----------------------------------------------------------------------------
-caddy_user_uid: 1000  # UID for Caddy user
-caddy_user_gid: 1000  # GID for Caddy user
+# AC-2: These are fallback defaults only. The stack_ingress role creates a dedicated
+# 'caddy' system user (no shell, no home) and overrides these facts at runtime
+# via ansible.builtin.getent so the container user matches the host service account.
+caddy_user_uid: 1000  # fallback — overridden at runtime by stack_ingress (AC-2)
+caddy_user_gid: 1000  # fallback — overridden at runtime by stack_ingress (AC-2)
 
 # -----------------------------------------------------------------------------
 # NETWORK CONFIGURATION (Tailscale Zero Trust)
