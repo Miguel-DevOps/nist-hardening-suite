@@ -44,14 +44,14 @@ app_base_dir: "/srv/app"  # Base path for container apps
 # Docker Engine package versions must stay explicit for reproducibility.
 docker_version_map:
   Debian:
-    bookworm: "5:27.5.1-1~debian.12~bookworm"
-    bullseye: "5:27.5.1-1~debian.11~bullseye"
+    bookworm: "5:29.3.0-1~debian.12~bookworm"
+    bullseye: "5:29.3.0-1~debian.11~bullseye"
   Ubuntu:
-    jammy: "5:27.5.1-1~ubuntu.22.04~jammy"
-    noble: "5:27.5.1-1~ubuntu.24.04~noble"
+    jammy: "5:29.3.0-1~ubuntu.22.04~jammy"
+    noble: "5:29.3.0-1~ubuntu.24.04~noble"
 
 # Use "*" to track the latest stable Tailscale package, or pin a specific version.
-tailscale_version: "*"
+tailscale_version: "1.94.2"
 
 # -----------------------------------------------------------------------------
 # CONTAINER USER IDs
