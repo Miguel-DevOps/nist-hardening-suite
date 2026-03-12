@@ -1,168 +1,112 @@
 # NIST Hardening Suite - Development Roadmap
 
-## 🎯 Vision
-Establish the NIST Hardening Suite as the industry‑standard open‑source solution for automated compliance, with commercial monitoring retainers as the primary revenue stream.
+## Vision
+Consolidate the NIST Hardening Suite as a practical, transparent, and auditable security baseline for hybrid infrastructure, keeping a balance between operational simplicity and compliance rigor.
 
-## 📊 Current Status (Q1 2026)
-**Overall maturity: Production‑Ready (v1.0.0)**
+## Current Status (Verified from Git History)
 
-### ✅ Completed (v1.0.0)
-- **Core hardening automation** – Full NIST 800‑53 controls (AC‑2, CM‑7, SC‑7, SI‑4, AU‑12, SC‑28)
-- **Multi‑cloud support** – Oracle Cloud, Hetzner, AWS, GCP, Azure compatible
-- **Security tooling** – CrowdSec IPS, auditd, fail2ban, UFW, Tailscale VPN
-- **Container foundation** – Docker Engine with pinned versions
-- **Management stack** – Portainer UI, Caddy reverse proxy, observability configs
-- **Documentation** – README, ARCHITECTURE.md, CHANGELOG.md, setup scripts
-- **CI/CD pipeline** – GitHub Actions with linting, validation, convergence testing
-- **Business model** – Open‑source code (MIT) + commercial monitoring retainers
+### Released Versions
+| Version | Date | Evidence from git | Main Focus |
+|---|---|---|---|
+| `v1.0.0` | 2026-02-12 | tag on `a4d63b9` | Initial production release and NIST baseline controls |
+| `v1.1.0` | 2026-03-08 | tag on `a12e836` | Runtime compatibility and security hardening |
+| `v1.2.0` | 2026-03-08 | tag on `2b621a1` | Portainer TLS hardening, Tailscale ACL improvements, observability fixes |
 
-## 🚀 Short‑Term Roadmap (Next 3 Months)
+### What Is Working Well in `v1.2.0`
+- NIST-focused architecture remains consistent (`AC-2`, `CM-7`, `SC-7`, `SI-4`, `AU-12`, `SC-28` audit scope).
+- Security stack is cohesive: SSH hardening, UFW/fail2ban, CrowdSec, Tailscale, Vault workflow.
+- Recent releases improved runtime compatibility, Portainer/Tailscale hardening, and observability reliability.
+- Tooling modernization is in place with `uv` and Python `3.14`.
 
-### Phase 1: Usability & Adoption
-1. **Interactive setup wizard**
-   - Guided `setup.sh` with menu‑driven configuration
-   - Auto‑detection of cloud providers and architectures
-   - Validation of prerequisites and dependencies
+### Improvement Focus (Without Overstating Risk)
+- Reduce imperative tasks (`shell`/`command`) where native Ansible modules can improve idempotence and auditability.
+- Improve tag semantics in destructive workflows (`nuke.yml`) for safer operations.
+- Keep documentation, CI evidence, and implemented behavior aligned release to release.
 
-2. **Enhanced documentation**
-   - Video tutorials (5‑minute hardening demo)
-   - Case studies (before/after security metrics)
-   - Troubleshooting guide for common issues
+## Priority Plan by Urgency
 
-3. **Community building**
-   - GitHub Discussions for user support
-   - Contributor guidelines and issue templates
-   - First‑time contributor friendly issues
+## U0 - Critical (0-30 days)
 
-### Phase 2: Enhanced Security Controls
-1. **Additional NIST controls**
-   - AC‑3 (Access Enforcement) – RBAC for Docker containers
-   - SC‑28 (Data at Rest) – LUKS encryption automation for cloud volumes
-   - SI‑3 (Malicious Code Protection) – Container image scanning integration
+### U0.1 Hardening and Operability Hotfixes
+- Refactor highest-impact imperative tasks in `nuke.yml` and core security roles.
+- Keep exceptions documented when commands are technically required.
+- NIST: `CM-6`, `CM-7`, `SI-10`.
+- OWASP: `A05`.
 
-2. **Advanced monitoring**
-   - Prometheus exporters for all security components
-   - Grafana dashboards for compliance reporting
-   - Alerting rules for security events
+### U0.2 Safer Execution Contracts
+- Replace custom `all` tag usage with explicit operational tags (`destroy`, `data`, `network`, `verify`).
+- Align runbook examples with real task tags.
+- NIST: `CM-3`, `SC-7`.
+- OWASP: `A05`, `A09`.
 
-3. **Compliance reporting**
-   - Automated NIST control validation reports
-   - CIS Benchmark scoring integration
-   - PDF/HTML report generation
+### U0.3 Stable and Deterministic Quality Gates
+- Standardize CI and local docs around `uv run` command paths.
+- Keep lint configs compatible with current `ansible-lint`/`yamllint` behavior.
+- NIST: `CA-7`, `AU-6`, `SI-4`.
+- OWASP: `A08`, `A09`.
 
-## 🏗️ Medium‑Term Roadmap (3‑6 Months)
+### Planned Release Target
+- `v1.2.1` - Operational hardening and documentation parity.
 
-### Phase 3: Enterprise Features
-1. **High availability**
-   - Multiple brain nodes with load balancing
-   - Automatic failover for management components
-   - State synchronization across management nodes
+## U1 - High (30-60 days)
 
-2. **Scalability improvements**
-   - Support for 100+ muscle nodes
-   - Distributed CrowdSec signal processing
-   - Regionalized Tailscale exit nodes
+### U1.1 Inventory-Agnostic Security Defaults
+- Continue removing host-specific assumptions.
+- Formalize least-privilege defaults for Docker/UFW/IPv6 paths.
+- NIST: `AC-2`, `SC-7`, `CM-7`.
+- OWASP: `A01`, `A05`.
 
-3. **Advanced networking**
-   - Site‑to‑site VPN alternatives (WireGuard, OpenVPN)
-   - BGP integration for hybrid cloud routing
-   - DNS‑based service discovery
+### U1.2 Compliance Evidence as Release Artifact
+- Publish machine-readable evidence of controls in CI.
+- Maintain control-to-task traceability matrix.
+- NIST: `CA-2`, `CA-7`, `AU-12`.
+- OWASP: `A09`.
 
-### Phase 4: Platform Integration
-1. **Cloud provider integrations**
-   - AWS Security Hub integration
-   - Google Cloud Security Command Center
-   - Azure Security Center compliance mapping
+### U1.3 Documentation-to-Implementation Alignment
+- Ensure observability and security claims match deployed behavior.
+- NIST: `SI-4`, `AU-12`.
+- OWASP: `A09`.
 
-2. **CI/CD pipeline integration**
-   - GitLab CI/CD templates
-   - Jenkins pipelines
-   - GitHub Actions hardened runners
+### Planned Release Target
+- `v1.3.0` - Compliance evidence and operability consistency.
 
-3. **Container security**
-   - Image signing and verification
-   - Runtime security policies (AppArmor, SELinux)
-   - Secrets management (HashiCorp Vault, AWS Secrets Manager)
+## U2 - Strategic (60-120 days)
 
-## 🔮 Long‑Term Roadmap (6‑12 Months)
+### U2.1 Additional Controls and Security Depth
+- Expand practical enforcement around `AC-3`, `SI-3`, and `SC-28` optional automation paths.
 
-### Phase 5: Commercial Platform
-1. **Monitoring dashboard**
-   - Centralized CrowdSec console for all client infrastructure
-   - Real‑time compliance scoring
-   - SLA reporting and uptime monitoring
+### U2.2 Policy-as-Code Guardrails
+- Introduce guardrails for module usage and documented exceptions.
 
-2. **Managed services**
-   - 24/7 SOC monitoring option
-   - Incident response retainer
-   - Compliance certification support (SOC 2, ISO 27001)
+### U2.3 Scale and Platform Readiness
+- Improve multi-node resilience and integration templates.
 
-3. **Partner ecosystem**
-   - MSP white‑label offering
-   - Technology partner integrations (CrowdSec, Tailscale, Portainer)
-   - Training and certification program
+### Planned Release Target
+- `v1.4.0` - Policy and scale maturity.
 
-### Phase 6: Innovation & Research
-1. **AI‑powered security**
-   - Anomaly detection using machine learning
-   - Predictive threat intelligence
-   - Automated remediation suggestions
+## Future Implementations (Backlog)
+- Interactive setup/diagnostics wizard.
+- Compliance reporting outputs (JSON/HTML/PDF).
+- Image provenance/signing pipeline.
+- Managed monitoring operation packs.
 
-2. **Zero‑trust architecture**
-   - Beyond VPN: service‑mesh based security
-   - Identity‑aware proxy integration
-   - Continuous authentication
+## Success Criteria
 
-3. **Compliance as code**
-   - Policy‑as‑code framework (Open Policy Agent)
-   - Automated audit trail generation
-   - Regulatory change tracking
+### For U0
+- `uv run ansible-lint site.yml stacks.yml monitoring.yml nuke.yml` runs with no critical regressions.
+- `uv run yamllint -c .yamllint .` runs clean for targeted release scope.
+- `uv run ansible-playbook --syntax-check site.yml stacks.yml monitoring.yml nuke.yml` passes.
 
-## 📈 Success Metrics
+### For U1/U2
+- Each release includes updated control mapping and evidence artifacts.
+- Documentation and code claims remain synchronized.
 
-### Technical Metrics
-- **Adoption**: 1000+ GitHub stars, 500+ clones/month
-- **Reliability**: 99.9% successful hardening rate
-- **Performance**: <10 minute hardening time per server
-- **Security**: Zero critical vulnerabilities in core code
-
-### Business Metrics
-- **Revenue**: 10+ commercial monitoring retainers
-- **Client satisfaction**: 4.8/5 average rating
-- **Market recognition**: Featured in 5+ industry publications
-- **Partnerships**: 3+ technology partnerships
-
-## 🛠️ Implementation Priorities
-
-### Priority 1 (Critical)
-- Bug fixes and security patches
-- Documentation improvements
-- Community support
-
-### Priority 2 (High Impact)
-- Additional NIST controls
-- Enhanced monitoring
-- Usability improvements
-
-### Priority 3 (Strategic)
-- Enterprise features
-- Platform integrations
-- Commercial platform
-
-## 🤝 Contribution Guidelines
-See [CONTRIBUTING.md](CONTRIBUTING.md) for how to contribute to this roadmap.
-
-## 📅 Release Schedule
-- **v1.1.0** – March 2026 (Usability improvements)
-- **v1.2.0** – May 2026 (Enhanced security controls)
-- **v2.0.0** – September 2026 (Enterprise features)
-
-## 🔗 Resources
-- [GitHub Repository](https://github.com/Miguel-DevOps/nist-hardening-suite)
-- [Documentation](https://github.com/Miguel-DevOps/nist-hardening-suite#readme)
-- [Commercial Inquiries](mailto:miguel@developmi.com)
+## Governance Notes
+- Keep claims verifiable and evidence-based.
+- Prefer declarative Ansible modules; document imperative exceptions.
+- Preserve pragmatic tone: highlight strengths, track improvements transparently.
 
 ---
 
-*Maintained by Miguel Lozano – Site Reliability Engineer & FinOps Architect*  
-*Last updated: February 2026*
+Maintained by Miguel Lozano - Site Reliability Engineer & FinOps Architect
+Last updated: 2026-03-12

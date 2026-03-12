@@ -1,4 +1,8 @@
-# Release Procedure - v1.0.0
+# Release Procedure
+
+Current latest release in git: `v1.3.0`.
+
+This document defines the standard process for all future releases (`v1.3.1+`).
 
 ## Automated Pre-Release Validation
 
@@ -6,22 +10,25 @@ All releases must pass automated checks before publication:
 
 ```bash
 # 1. Run full CI/CD pipeline
-pre-commit run --all-files
+uv run pre-commit run --all-files
 
 # 2. Verify no secrets in codebase
-detect-secrets scan --baseline .secrets.baseline
+uv run detect-secrets scan --baseline .secrets.baseline
 
 # 3. Lint playbooks & YAML
-ansible-lint stacks.yml monitoring.yml nuke.yml
-yamllint .
+uv run ansible-lint site.yml stacks.yml monitoring.yml nuke.yml
+uv run yamllint -c .yamllint .
 
 # 4. Syntax validation
-ansible-playbook --syntax-check stacks.yml monitoring.yml nuke.yml
-ansible-inventory -i inventory/hosts.ini --list > /dev/null
+uv run ansible-playbook --syntax-check site.yml
+uv run ansible-playbook --syntax-check stacks.yml
+uv run ansible-playbook --syntax-check monitoring.yml
+uv run ansible-playbook --syntax-check nuke.yml
+uv run ansible-inventory -i inventory/hosts.ini --list > /dev/null
 
 # 5. Idempotence test (run twice, both should be identical)
-ansible-playbook -i inventory/hosts.ini stacks.yml --check --ask-vault-pass
-ansible-playbook -i inventory/hosts.ini stacks.yml --check --ask-vault-pass
+uv run ansible-playbook -i inventory/hosts.ini stacks.yml --check --ask-vault-pass
+uv run ansible-playbook -i inventory/hosts.ini stacks.yml --check --ask-vault-pass
 ```
 
 GitHub Actions will automatically validate all pull requests against these checks.
@@ -30,9 +37,9 @@ GitHub Actions will automatically validate all pull requests against these check
 
 ### 1. Prepare Release Branch
 ```bash
-git checkout main
-git pull origin main
-git checkout -b release/v1.0.0
+git checkout master
+git pull origin master
+git checkout -b release/vX.Y.Z
 ```
 
 ### 2. Verify Documentation
@@ -44,40 +51,30 @@ git checkout -b release/v1.0.0
 ### 3. Run All Validation (see above)
 Complete all automated checks. All must pass before proceeding.
 
-### 4. Create Release Commit
+### 4. Create Release Commit and Tag
 ```bash
-git commit -m "Release v1.0.0: NIST 800-53 hardening suite
+git commit -m "Release vX.Y.Z: NIST Hardening Suite
 
-Core Features:
-- Automated NIST AC-2, CM-7, SC-7, SI-4, AU-12, SC-28 compliance
-- Multi-cloud infrastructure hardening
-- Zero-trust Tailscale VPN with ACL automation  
-- Portainer Edge Agent management stack
-- CrowdSec IDS + auditd monitoring
-- Optional observability (VictoriaMetrics, Grafana)
+Highlights:
+- [add release highlights]
+- [add compatibility/security changes]
+- [add docs/ops improvements]
 
-Security Fixes:
-- OCI killswitch idempotence verified
-- Container privilege isolation (unprivileged users)
-- Resource limits enforced across all services
-- Deadman switch safety validation
+Validation:
+- Quality gates passed with uv-managed toolchain
+- Docs updated (README, ROADMAP, CHANGELOG)
 
-Automation:
-- GitHub Actions CI/CD with security gates
-- Pre-commit hooks for local validation
-- detect-secrets prevents credential commits
+See CHANGELOG.md for full details."
 
-See CHANGELOG.md for complete details."
-
-git tag -a v1.0.0 -m "NIST Hardening Suite v1.0.0 - Production Release"
-git push origin release/v1.0.0
-git push origin v1.0.0
+git tag -a vX.Y.Z -m "NIST Hardening Suite vX.Y.Z"
+git push origin release/vX.Y.Z
+git push origin vX.Y.Z
 ```
 
 ### 5. Create GitHub Release
 1. Go to Releases → Create New Release
-2. Title: `NIST Hardening Suite v1.0.0`
-3. Notes: Copy full CHANGELOG.md entry
+2. Title: `NIST Hardening Suite vX.Y.Z`
+3. Notes: Copy the corresponding `CHANGELOG.md` section
 4. Set as latest release
 5. Save & publish
 
@@ -86,7 +83,7 @@ git push origin v1.0.0
 - [ ] Monitor GitHub Issues for early adopter feedback
 - [ ] Check GitHub Discussions for user questions
 - [ ] Verify security reports arrive via proper channels
-- [ ] Plan v1.1.0 improvements based on feedback
+- [ ] Plan next patch/minor iteration based on feedback
 
 ## Version Bumping Strategy
 

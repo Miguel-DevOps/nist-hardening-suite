@@ -22,6 +22,8 @@
 > 
 > **Business Model:** The hardening script is free (MIT licensed). I charge a monthly retainer for continuous monitoring via CrowdSec, ensuring your infrastructure stays compliant.
 
+> **Current Release:** `v1.3.0` (Security hardening fixes, Tailscale auth key hardening, Portainer Edge ID resolution, uv toolchain migration)
+
 ---
 
 ## 📖 Overview
@@ -41,8 +43,9 @@ It guarantees that nodes running in **Oracle Cloud** and **Hetzner** maintain an
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Ansible Core 2.16+
-- Python 3.12+
+- Python 3.14+
+- `uv` for reproducible local tooling
+- Ansible Core 2.19+
 - `ansible-vault` for secret management  
 - SSH access to target servers
 
@@ -51,8 +54,11 @@ It guarantees that nodes running in **Oracle Cloud** and **Hetzner** maintain an
 git clone https://github.com/Miguel-DevOps/nist-hardening-suite.git
 cd nist-hardening-suite
 
+# Sync toolchain (recommended)
+uv sync
+
 # Install Ansible collections
-ansible-galaxy collection install -r requirements.yml
+uv run ansible-galaxy collection install -r requirements.yml
 ```
 
 ### 2. Configure Inventory
@@ -78,7 +84,7 @@ ansible-vault edit group_vars/all/secrets.yml
 ### 4. Run Base Hardening (NIST Compliance)
 ```bash
 # Full NIST hardening (takes ~10-15 minutes)
-ansible-playbook -i inventory/hosts.ini site.yml --ask-vault-pass
+uv run ansible-playbook -i inventory/hosts.ini site.yml --ask-vault-pass
 
 # Expected output includes:
 # ✅ SSH password auth DISABLED (keys only)
@@ -91,26 +97,26 @@ ansible-playbook -i inventory/hosts.ini site.yml --ask-vault-pass
 ### 5. Deploy Management Stack
 ```bash
 # After hardening, deploy Portainer Edge Agent + Caddy
-ansible-playbook -i inventory/hosts.ini stacks.yml --ask-vault-pass
+uv run ansible-playbook -i inventory/hosts.ini stacks.yml --ask-vault-pass
 ```
 
 ### 5.1 Optional Add-on: Observability Stack (Anti-Bloat)
 Use this only on servers with sufficient resources.
 ```bash
 # Deploy VictoriaMetrics + Grafana + Loki + Uptime Kuma (optional)
-ansible-playbook -i inventory/hosts.ini monitoring.yml --ask-vault-pass
+uv run ansible-playbook -i inventory/hosts.ini monitoring.yml --ask-vault-pass
 ```
 
 ### 6. Verify & Monitor
 ```bash
 # Check security status
-ansible all -i inventory/hosts.ini -m shell -a "tailscale status"
+uv run ansible all -i inventory/hosts.ini -m shell -a "tailscale status"
 
 # View CrowdSec alerts (intrusion detection)
-ansible all -i inventory/hosts.ini -m shell -a "cscli alerts list"
+uv run ansible all -i inventory/hosts.ini -m shell -a "cscli alerts list"
 
 # Monitor audit logs (NIST AU‑12)
-ansible all -i inventory/hosts.ini -m shell -a "tail -f /var/log/audit/audit.log"
+uv run ansible all -i inventory/hosts.ini -m shell -a "tail -f /var/log/audit/audit.log"
 ```
 
 ### 📋 What Gets Installed
@@ -410,11 +416,11 @@ Complete documentation for this project:
 | Document | Purpose |
 |----------|---------|
 | **[ARCHITECTURE.md](ARCHITECTURE.md)** | System design, component architecture, NIST control mapping, and technical decisions |
-| **[ROADMAP.md](ROADMAP.md)** | Development roadmap with v1.1.0+ features and commercial platform plans |
-| **[CHANGELOG.md](CHANGELOG.md)** | Version history and detailed release notes for v1.0.0 |
+| **[ROADMAP.md](ROADMAP.md)** | Priority roadmap by urgency (U0/U1/U2), current strengths, and future implementations |
+| **[CHANGELOG.md](CHANGELOG.md)** | Version history and release notes (`v1.0.0`, `v1.1.0`, `v1.2.0`) |
 | **[CONTRIBUTING.md](CONTRIBUTING.md)** | Contribution guidelines, development setup, and code quality standards |
 | **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** | Community guidelines and expected behavior |
-| **[RELEASE.md](RELEASE.md)** | Release procedure and validation checklist for maintainers |
+| **[RELEASE.md](RELEASE.md)** | Version-agnostic release procedure aligned with `uv` and current QA gates |
 
 ---
 ## 📬 Contact & Brand

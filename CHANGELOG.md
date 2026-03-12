@@ -2,6 +2,45 @@
 
 All notable changes to NIST Hardening Suite are documented here.
 
+## [1.3.0] - 2026-03-12
+
+### Highlights
+- **Security hardening**: Fixed Docker bridge network range (`172.16.0.0/12`), dynamic fail2ban IP whitelist, and removed obsolete SSH `Protocol` directive.
+- **Tailscale auth key hardening**: Auth key now passed via stdin (`--authkey=-`) to prevent process list exposure (CWE-214).
+- **Portainer Edge Agent improvements**: Added `no_log` guards, dynamic Edge ID resolution with machine-identity fallback, secure `/tmp` tmpfs mount, and YAML dict environment format.
+- **New configurable variables**: `ufw_enable_ipv6` (dual-stack UFW control), `tailscale_enable_webclient` (persistent webclient toggle).
+- **Toolchain migration to `uv`**: Pinned Python 3.14, upgraded to `ansible-core 2.20.3`, `ansible-lint 26.3.0`, `yamllint 1.38.0`; added `pyproject.toml` for reproducible environments.
+- **Linting improvements**: Updated `.yamllint` rules, fixed `ansible-lint` file pattern in pre-commit, added `.venv/` to `.gitignore`.
+
+### Notes
+- All security fixes are backwards-compatible. Existing deployments require no variable changes.
+- `uv sync` is now the recommended way to install the local toolchain.
+- Docker bridge range fix corrects a previously over-permissive UFW rule.
+
+## [1.2.0] - 2026-03-08
+
+### Highlights
+- **Portainer hardening**: Added TLS server certificate flow and stronger Edge Agent deployment defaults.
+- **Tailscale ACL improvements**: Introduced composable ACL source groups and break-glass policy patterns.
+- **Observability reliability**: Fixed base directory handling and normalized Ansible builtin module usage.
+- **Documentation alignment**: Standardized Portainer key naming and pinned `caddy-waf` image tag in docs.
+
+### Notes
+- This release builds on `v1.1.0` and keeps the NIST control baseline intact.
+- Main objective: improve operational reliability and secure defaults without changing architecture scope.
+
+## [1.1.0] - 2026-03-08
+
+### Highlights
+- **Runtime compatibility updates** for container and Ansible ecosystem changes.
+- **Security hardening expansion** in core roles and CrowdSec reliability paths.
+- **Docker runtime improvements** including Docker 29 compatibility and cAdvisor updates.
+- **Tailscale enrollment hardening** with improved ACL policy generation.
+- **Repository/docs cleanup** for better operational consistency.
+
+### Notes
+- Focused on stability, compatibility, and hardening continuity after `v1.0.0`.
+
 ## [1.0.0] - 2026-02-12
 
 ### 🚀 First Production Release
@@ -91,5 +130,3 @@ See [ROADMAP.md](ROADMAP.md) for v1.1.0+ planned features:
 - Additional NIST controls (AC-3, SC-28 automation)
 - Enhanced monitoring dashboards
 - Commercial monitoring platform
-
-- **SC‑28** – Data at Rest (Ansible Vault for secrets; disk encryption audit only)
