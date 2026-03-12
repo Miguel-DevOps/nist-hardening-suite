@@ -73,18 +73,28 @@
   notify: Restart SSH
   tags: [nist, ac-2]
 
-- name: Disable SSH Protocol 1 (force Protocol 2)
+- name: Remove obsolete SSH Protocol directive (Protocol 2 is default)
   ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config
     regexp: '^#?Protocol'
-    line: 'Protocol 2'
-    state: present
+    state: absent
   notify: Restart SSH
   tags: [nist, ac-2]
 
 # ------------------------------------------------------------------------------
 # 3. FAIL2BAN ROBUSTO (Con Whitelist de IPs Públicas y Tailscale)
 # ------------------------------------------------------------------------------
+- name: Build dynamic public IP whitelist for fail2ban
+  ansible.builtin.set_fact:
+    fail2ban_public_ips: >-
+      {{
+        (groups.get('brain', []) + groups.get('muscle', []))
+        | map('extract', hostvars)
+        | selectattr('public_ip', 'defined')
+        | map(attribute='public_ip')
+        | list
+      }}
+
 - name: Configure fail2ban jail.local (Robust config with IP whitelist)
   ansible.builtin.copy:
     dest: /etc/fail2ban/jail.local
@@ -95,7 +105,7 @@
       # Brain Public IP (from inventory)
       # Muscle Public IP (from inventory)
       # {{ tailscale_subnet }}        -> Tailscale subnet (RFC 6598 default)
-      ignoreip = 127.0.0.1/8 ::1 {{ hostvars['brain-hetzner'].public_ip | default('') }} {{ hostvars['muscle-oci-1'].public_ip | default('') }} {{ tailscale_subnet }}
+      ignoreip = {{ (['127.0.0.1/8', '::1'] + fail2ban_public_ips + [tailscale_subnet]) | join(' ') }}
 
       bantime = 1h
       findtime = 10m
@@ -373,7 +383,7 @@
 - name: Allow Docker internal networking (bridge mode)
   community.general.ufw:
     rule: allow
-    src: 172.0.0.0/8
+    src: 172.16.0.0/12
     comment: "Docker bridge networks"
   tags: [nist, sc-7]
 
@@ -421,11 +431,11 @@
   notify: Reload UFW
   tags: [nist, sc-7]
 
-- name: Disable IPv6 in UFW (simplify ruleset)
+- name: Configure IPv6 policy in UFW
   ansible.builtin.lineinfile:
     path: /etc/default/ufw
     regexp: '^IPV6='
-    line: 'IPV6=no'
+    line: 'IPV6={{ "yes" if (ufw_enable_ipv6 | bool) else "no" }}'
     state: present
   notify: Reload UFW
   tags: [nist, sc-7]
@@ -478,11 +488,10 @@
       - "  {% if cloud_provider == 'hetzner' %}- SSH: Rate limited public + Tailscale{% endif %}"
       - "  {% if cloud_provider == 'oci' %}- SSH: Tailscale VPN ONLY (OCI iptables FLUSHED){% endif %}"
       - "  - Tailscale mesh: UDP 41641"
-      - "  - Docker bridge: 172.0.0.0/8"
+      - "  - Docker bridge: 172.16.0.0/12"
       - ""
       - "🎯 IP Whitelist (Fail2ban):"
-      - "  - {{ hostvars['brain-hetzner'].public_ip | default('N/A') }} (Brain)"
-      - "  - {{ hostvars['muscle-oci-1'].public_ip | default('N/A') }} (Muscle)"
+      - "  - Public IPs: {{ fail2ban_public_ips | join(', ') if (fail2ban_public_ips | length > 0) else 'N/A' }}"
       - "  - {{ tailscale_subnet }} (Tailscale subnet)"
       - ""
       - "{% if cloud_provider == 'oci' %}🔴 OCI KILLSWITCH APPLIED:{% endif %}"
