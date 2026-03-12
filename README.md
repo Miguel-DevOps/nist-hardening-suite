@@ -22,7 +22,7 @@
 > 
 > **Business Model:** The hardening script is free (MIT licensed). I charge a monthly retainer for continuous monitoring via CrowdSec, ensuring your infrastructure stays compliant.
 
-> **Current Release:** `v1.3.0` (Security hardening fixes, Tailscale auth key hardening, Portainer Edge ID resolution, uv toolchain migration)
+> **Current Release:** `v1.3.1` (Caddy security integration audit fixes across AC-2, AU-12, SI-4, SC-7, and configuration hygiene)
 
 ---
 
@@ -417,7 +417,7 @@ Complete documentation for this project:
 |----------|---------|
 | **[ARCHITECTURE.md](ARCHITECTURE.md)** | System design, component architecture, NIST control mapping, and technical decisions |
 | **[ROADMAP.md](ROADMAP.md)** | Priority roadmap by urgency (U0/U1/U2), current strengths, and future implementations |
-| **[CHANGELOG.md](CHANGELOG.md)** | Version history and release notes (`v1.0.0`, `v1.1.0`, `v1.2.0`) |
+| **[CHANGELOG.md](CHANGELOG.md)** | Version history and release notes (`v1.0.0` to `v1.3.1`) |
 | **[CONTRIBUTING.md](CONTRIBUTING.md)** | Contribution guidelines, development setup, and code quality standards |
 | **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** | Community guidelines and expected behavior |
 | **[RELEASE.md](RELEASE.md)** | Version-agnostic release procedure aligned with `uv` and current QA gates |

@@ -1,8 +1,8 @@
 # Release Procedure
 
-Current latest release in git: `v1.3.0`.
+Current latest release in git: `v1.3.1`.
 
-This document defines the standard process for all future releases (`v1.3.1+`).
+This document defines the standard process for all future releases (`v1.3.2+`).
 
 ## Automated Pre-Release Validation
 

@@ -11,11 +11,13 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 | `v1.0.0` | 2026-02-12 | tag on `a4d63b9` | Initial production release and NIST baseline controls |
 | `v1.1.0` | 2026-03-08 | tag on `a12e836` | Runtime compatibility and security hardening |
 | `v1.2.0` | 2026-03-08 | tag on `2b621a1` | Portainer TLS hardening, Tailscale ACL improvements, observability fixes |
+| `v1.3.0` | 2026-03-12 | tag on `21a5d19` | Security hardening fixes, Tailscale auth key hardening, Portainer Edge improvements, `uv` toolchain migration |
+| `v1.3.1` | 2026-03-12 | tag on `c19f7c7` | Caddy security integration audit fixes across AC-2, AU-12, SI-4, SC-7, and configuration hygiene |
 
-### What Is Working Well in `v1.2.0`
+### What Is Working Well in `v1.3.1`
 - NIST-focused architecture remains consistent (`AC-2`, `CM-7`, `SC-7`, `SI-4`, `AU-12`, `SC-28` audit scope).
 - Security stack is cohesive: SSH hardening, UFW/fail2ban, CrowdSec, Tailscale, Vault workflow.
-- Recent releases improved runtime compatibility, Portainer/Tailscale hardening, and observability reliability.
+- Recent releases improved runtime compatibility, Portainer/Tailscale hardening, observability reliability, and Caddy security monitoring/auditability.
 - Tooling modernization is in place with `uv` and Python `3.14`.
 
 ### Improvement Focus (Without Overstating Risk)
