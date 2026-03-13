@@ -73,13 +73,16 @@ muscle-oci-1 ansible_host=YOUR_PUBLIC_IP ansible_user=ubuntu public_ip=YOUR_PUBL
 
 ### 3. Set Up Encrypted Secrets
 ```bash
-# Copy and encrypt secrets (GitHub token + Tailscale key required)
+# Copy and encrypt secrets (GitHub token + Tailscale node auth key required)
 cp group_vars/all/secrets.yml.example group_vars/all/secrets.yml
 ansible-vault encrypt group_vars/all/secrets.yml
 
 # Edit encrypted file
 ansible-vault edit group_vars/all/secrets.yml
 ```
+
+For automated ACL management, also set `tailscale_acl_client_id` and a `tailscale_acl_key` that starts with `tskey-client-`.
+Legacy long-lived API tokens are not supported by the current ACL automation flow.
 
 ### 4. Run Base Hardening (NIST Compliance)
 ```bash
@@ -96,6 +99,9 @@ uv run ansible-playbook -i inventory/hosts.ini site.yml --ask-vault-pass
 
 ### 5. Deploy Management Stack
 ```bash
+# Create your local ingress template first (intentionally ignored by git)
+cp roles/stack_ingress/templates/Caddyfile.example.j2 roles/stack_ingress/templates/Caddyfile.j2
+
 # After hardening, deploy Portainer Edge Agent + Caddy
 uv run ansible-playbook -i inventory/hosts.ini stacks.yml --ask-vault-pass
 ```
@@ -110,7 +116,7 @@ uv run ansible-playbook -i inventory/hosts.ini monitoring.yml --ask-vault-pass
 ### 6. Verify & Monitor
 ```bash
 # Check security status
-uv run ansible all -i inventory/hosts.ini -m shell -a "tailscale status"
+uv run ansible all -i inventory/hosts.ini -m command -a "tailscale status"
 
 # View CrowdSec alerts (intrusion detection)
 uv run ansible all -i inventory/hosts.ini -m shell -a "cscli alerts list"
@@ -149,7 +155,9 @@ The suite deploys **Portainer Edge Agent** only, which uses a **pull‑based arc
 - ACLs enforce least‑privilege access between `brain` and `muscle` nodes
 - Port‑level restrictions (e.g., SSH port 22)
 - Tag‑based policies for simplified management
-- Automated ACL configuration available via `tailscale_acl_key`
+- Automated ACL configuration is OAuth-only via `tailscale_acl_client_id` + `tailscale_acl_key` (no API token mode)
+- ACL policy is validated before apply via Tailscale API to prevent unsafe policy pushes
+- Existing ACL automation that used legacy API bearer tokens must migrate credentials before upgrading
 
 ### ☢️ Nuclear Cleanup (`nuke.yml`)
 This playbook is destructive and irreversible. It includes a mandatory confirmation prompt requiring the exact phrase `DESTROY_ALL_INFRASTRUCTURE`.

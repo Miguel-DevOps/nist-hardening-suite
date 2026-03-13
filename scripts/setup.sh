@@ -172,8 +172,9 @@ setup_secrets() {
         print_info "To encrypt: ansible-vault encrypt group_vars/all/secrets.yml"
         print_info "Required secrets:"
         echo "  - vault_github_token (GitHub Personal Access Token)"
-        echo "  - tailscale_auth_key (Tailscale auth key)"
-        echo "  - docker_version_map (Docker version mapping)"
+        echo "  - tailscale_auth_key (Tailscale OAuth client secret for node join)"
+        echo "  - tailscale_acl_key (Tailscale OAuth client secret for ACL API)"
+        echo "  - tailscale_acl_client_id (Tailscale OAuth client ID for ACL API)"
     else
         print_error "secrets.yml.example not found"
         return 1

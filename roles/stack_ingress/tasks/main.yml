@@ -85,6 +85,18 @@
     owner: "{{ caddy_user_uid }}"
     group: "{{ caddy_user_gid }}"
 
+- name: Validate Caddyfile.j2 presence
+  ansible.builtin.stat:
+    path: "{{ role_path }}/templates/Caddyfile.j2"
+  register: caddyfile_j2_stat
+
+- name: Fail if Caddyfile.j2 is missing
+  ansible.builtin.fail:
+    msg: |
+      Caddyfile.j2 is missing!
+      Please copy roles/stack_ingress/templates/Caddyfile.example.j2 to Caddyfile.j2 and adjust it for your deployment.
+  when: not caddyfile_j2_stat.stat.exists
+
 - name: Ensure public_net Docker network exists
   community.docker.docker_network:
     name: public_net

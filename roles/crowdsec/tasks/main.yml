@@ -9,9 +9,9 @@
 - name: SI-4 | Validate supported OS and codename for CrowdSec repository
   ansible.builtin.assert:
     that:
-      - ansible_distribution in ['Ubuntu', 'Debian']
-      - ansible_distribution_release is defined
-      - ansible_distribution_release | length > 0
+      - ansible_facts['distribution'] in ['Ubuntu', 'Debian']
+      - ansible_facts['distribution_release'] is defined
+      - ansible_facts['distribution_release'] | length > 0
     fail_msg: "Unsupported OS or missing distro codename for CrowdSec repository setup (requires Debian/Ubuntu codename)."
   tags: [crowdsec, nist, si-4]
 
@@ -42,20 +42,20 @@
 
 - name: SI-4 | Add CrowdSec repository (Ubuntu)
   ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/crowdsec.asc] https://packagecloud.io/crowdsec/crowdsec/ubuntu/ {{ ansible_distribution_release }} main"
+    repo: "deb [signed-by=/etc/apt/keyrings/crowdsec.asc] https://packagecloud.io/crowdsec/crowdsec/ubuntu/ {{ ansible_facts['distribution_release'] }} main"
     state: present
     filename: crowdsec
     update_cache: true
-  when: ansible_distribution == 'Ubuntu'
+  when: ansible_facts['distribution'] == 'Ubuntu'
   tags: [crowdsec, nist, si-4]
 
 - name: SI-4 | Add CrowdSec repository (Debian)
   ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/crowdsec.asc] https://packagecloud.io/crowdsec/crowdsec/debian/ {{ ansible_distribution_release }} main"
+    repo: "deb [signed-by=/etc/apt/keyrings/crowdsec.asc] https://packagecloud.io/crowdsec/crowdsec/debian/ {{ ansible_facts['distribution_release'] }} main"
     state: present
     filename: crowdsec
     update_cache: true
-  when: ansible_distribution == 'Debian'
+  when: ansible_facts['distribution'] == 'Debian'
   tags: [crowdsec, nist, si-4]
 
 - name: SI-4 | Install CrowdSec agent

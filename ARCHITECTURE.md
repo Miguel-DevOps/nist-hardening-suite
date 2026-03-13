@@ -202,6 +202,7 @@ The suite deploys **Portainer Edge Agent** by default (`portainer-edge-agent.yml
 
 ### Caddy Ingress & Zero Trust
 The default `Caddyfile.j2` includes a `(vpn_only)` block that restricts access to Tailscale IPs (100.64.0.0/10). All example site definitions import this block, enforcing Zero Trust at the ingress layer. Remove `import vpn_only` from any site that requires public internet access.
+The repository now ships `roles/stack_ingress/templates/Caddyfile.example.j2` as the tracked baseline. Operators must copy it to `Caddyfile.j2` locally before running `stacks.yml`; the untracked file stays deployment-specific by design.
 
 ### SC‑28 Data at Rest Clarification
 The NIST SC‑28 control is partially implemented:
@@ -210,6 +211,17 @@ The NIST SC‑28 control is partially implemented:
 
 ### Tailscale Authentication Key Handling
 Authentication keys are passed via `stdin` to `tailscale up --authkey=-` and never written to disk, eliminating the race‑condition risk of temporary file residue.
+The Ansible task must set `stdin_add_newline: false`; otherwise Ansible appends a trailing newline and Tailscale rejects the OAuth secret as an invalid key.
+
+### Tailscale ACL API Authentication (OAuth Mandatory)
+ACL automation is OAuth-only in this repository to keep least privilege and short-lived credentials by default:
+- The role exchanges `tailscale_acl_client_id` + `tailscale_acl_key` at `https://api.tailscale.com/api/v2/oauth/token`.
+- It validates policy with `POST /api/v2/tailnet/{tailnet|\-}/acl/validate` before applying `POST /api/v2/tailnet/{tailnet|\-}/acl`.
+- Long-lived API access tokens are intentionally not supported in role logic.
+
+Upgrade note: environments that previously relied on a legacy ACL API token must migrate to an OAuth client pair before applying this change.
+
+This design reinforces Zero Trust and aligns with NIST 800-53/NIST CSF 2.0 principles for least privilege, credential minimization, and controlled policy change.
 
 ## 📚 References
 

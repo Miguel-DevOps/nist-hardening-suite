@@ -2,6 +2,27 @@
 
 All notable changes to NIST Hardening Suite are documented here.
 
+## [2.0.0] - 2026-03-13
+
+### Breaking Changes
+- **Tailscale ACL automation is now OAuth-only**: `tailscale_acl_key` must be a `tskey-client-*` OAuth client secret and must be paired with `tailscale_acl_client_id`.
+  Long-lived API access tokens are no longer accepted for ACL policy management.
+- **Upgrade impact**: Existing deployments using legacy Tailscale ACL API tokens must migrate credentials before applying this release.
+
+### Features
+- **Tailscale ACL safety**: ACL policies are validated with `POST /api/v2/tailnet/{tailnet|\-}/acl/validate` before apply, reducing the risk of pushing malformed Zero Trust policy.
+- **Caddy ingress bootstrap**: Added `roles/stack_ingress/templates/Caddyfile.example.j2` as a tracked baseline template for site-specific ingress customization.
+
+### Fixes
+- **Tailscale recovery**: The client role now clears stale `NeedsLogin` state before retrying authentication and emits redacted diagnostics on failure.
+- **Tailscale daemon flags**: UDP port overrides are configured only when `tailscale_udp_port` is explicitly set; metrics port configuration no longer mutates the daemon listen port.
+- **Ansible fact access**: Updated affected roles to use `ansible_facts[...]` consistently for better compatibility with current Ansible versions.
+- **Ingress preflight**: `stack_ingress` now fails early with a clear message when `Caddyfile.j2` is missing.
+
+### Documentation
+- Updated release guidance to map SemVer decisions to Conventional Commit-style messages, including `!` for breaking changes.
+- Updated setup docs and secrets examples for Tailscale OAuth credentials and local `Caddyfile.j2` workflow.
+
 ## [1.3.1] - 2026-03-12
 
 ### Bug Fixes - Caddy Security Integration Audit (NIST 800-53)

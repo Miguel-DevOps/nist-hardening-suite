@@ -39,7 +39,7 @@
       {{
         (
           portainer_edge_id
-          | default(ansible_machine_id | default(inventory_hostname), true)
+          | default(ansible_facts["machine_id"] | default(inventory_hostname), true)
         )
         | string
         | trim
@@ -114,7 +114,7 @@
             'DNS:' ~ inventory_hostname,
             'DNS:' ~ groups['brain'][0]
           ]
-          + ([('IP:' ~ ansible_host)] if (ansible_host is defined and (ansible_host | regex_search('^\\d+\\.\\d+\\.\\d+\\.\\d+$'))) else [])
+          + ([('IP:' ~ hostvars[inventory_hostname]["ansible_host"]) ] if (hostvars[inventory_hostname]["ansible_host"] is defined and (hostvars[inventory_hostname]["ansible_host"] | regex_search('^\\d+\\.\\d+\\.\\d+\\.\\d+$'))) else [])
         ) | unique
       }}
   when: "'brain' in group_names"

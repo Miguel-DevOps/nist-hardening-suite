@@ -2,7 +2,7 @@
 
 Current latest release in git: `v1.3.1`.
 
-This document defines the standard process for all future releases (`v1.3.2+`).
+This document defines the standard process for all future releases.
 
 ## Automated Pre-Release Validation
 
@@ -48,6 +48,25 @@ git checkout -b release/vX.Y.Z
 - [ ] CHANGELOG.md documents all changes for this release
 - [ ] All links are valid (no broken references)
 
+### 2.1 Organize Atomic Commits Before Release
+Use small, logically grouped commits before the final release commit.
+The repository history already follows Conventional Commit-style prefixes and releases should keep that convention:
+
+- `feat:` for backwards-compatible features
+- `fix:` for backwards-compatible bug fixes
+- `docs:` for documentation-only changes
+- `chore:` for tooling, config, or maintenance work
+- `refactor:` for internal restructuring without behavior change
+- `feat!:` or `fix!:` when a change is breaking for operators or consumers
+
+Examples:
+
+```bash
+git commit -m "fix(ansible): use ansible_facts namespace across roles"
+git commit -m "feat(ingress): add tracked Caddyfile example template"
+git commit -m "feat!(tailscale): require OAuth client credentials for ACL automation"
+```
+
 ### 3. Run All Validation (see above)
 Complete all automated checks. All must pass before proceeding.
 
@@ -90,7 +109,13 @@ git push origin vX.Y.Z
 Follow semantic versioning:
 - **v1.0.1** – Security patches only (no new features)
 - **v1.1.0** – New features, backwards compatible
-- **v2.0.0** – Major refactor or breaking changes
+- **v2.0.0** – Breaking changes, including operator-facing config migrations
+
+Practical mapping for this repository:
+
+- `fix:` only and no operator-visible behavior change: bump `PATCH`
+- `feat:` with backwards-compatible variables/behavior: bump `MINOR`
+- `feat!:` or any release requiring config migration or removing a supported path: bump `MAJOR`
 
 ---
 

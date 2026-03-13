@@ -19,7 +19,7 @@
 
 - name: Enable Universe repository (Ubuntu)
   ansible.builtin.command: add-apt-repository -y universe
-  when: ansible_distribution == 'Ubuntu'
+  when: ansible_facts['distribution'] == 'Ubuntu'
   changed_when: false
 
 - name: Install base system utilities
@@ -50,12 +50,12 @@
   register: swap_status
   changed_when: false
   failed_when: false
-  when: ansible_swaptotal_mb > 0
+  when: ansible_facts['swaptotal_mb'] > 0
 
 - name: Disable active swap
   ansible.builtin.command: swapoff -a
   when:
-    - ansible_swaptotal_mb > 0
+    - ansible_facts['swaptotal_mb'] > 0
     - swap_status.stdout != ""
   changed_when: swap_status.stdout != ""
 
@@ -64,7 +64,7 @@
     path: /etc/fstab
     regexp: '^\s*[^#].*\sswap\s'
     state: absent
-  when: ansible_swaptotal_mb > 0
+  when: ansible_facts['swaptotal_mb'] > 0
 
 - name: Set system locale to en_US.UTF-8
   community.general.locale_gen:
@@ -105,7 +105,7 @@
 - name: Set hostname based on inventory name
   ansible.builtin.hostname:
     name: "{{ inventory_hostname }}"
-  when: inventory_hostname != ansible_hostname
+  when: inventory_hostname != ansible_facts['hostname']
 
 - name: "✅ Base system configuration complete"
   ansible.builtin.debug:

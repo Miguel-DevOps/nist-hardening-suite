@@ -23,8 +23,16 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 3. Make your changes, following the code style and conventions.
 4. Write or update tests as necessary.
 5. Ensure your code passes `ansible-lint` and `yamllint`.
-6. Commit your changes with descriptive commit messages.
+6. Commit your changes with descriptive Conventional Commit-style messages.
 7. Push to your fork and open a pull request.
+
+Recommended commit prefixes:
+- `feat:` for backwards-compatible features
+- `fix:` for backwards-compatible fixes
+- `docs:` for documentation-only updates
+- `chore:` for tooling and maintenance
+- `refactor:` for internal restructuring without behavior change
+- Append `!` when the change is breaking, for example `feat!(tailscale): require OAuth credentials for ACL automation`
 
 ## Development Setup
 

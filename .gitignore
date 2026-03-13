@@ -178,6 +178,9 @@ temp/
 .venv/
 .uv/
 
+# Ignore Caddyfile.j2 (user-specific config)
+roles/stack_ingress/templates/Caddyfile.j2
+
 #############################################
 # End of .gitignore
 #############################################

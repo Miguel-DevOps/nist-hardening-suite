@@ -12,16 +12,16 @@
   ansible.builtin.assert:
     that:
       - docker_version_map is defined
-      - docker_version_map[ansible_distribution] is defined
-      - docker_version_map[ansible_distribution][ansible_distribution_release] is defined
+      - docker_version_map[ansible_facts['distribution']] is defined
+      - docker_version_map[ansible_facts['distribution']][ansible_facts['distribution_release']] is defined
     fail_msg: |
       docker_version_map must be defined in group_vars/all/secrets.yml
-      Current OS: {{ ansible_distribution }} {{ ansible_distribution_release }}
-    success_msg: "Docker version: {{ docker_version_map[ansible_distribution][ansible_distribution_release] }}"
+      Current OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_release'] }}
+    success_msg: "Docker version: {{ docker_version_map[ansible_facts['distribution']][ansible_facts['distribution_release']] }}"
 
 - name: Display Docker version to be installed
   ansible.builtin.debug:
-    msg: "🐳 Docker Engine: {{ docker_version_map[ansible_distribution][ansible_distribution_release] }}"
+    msg: "🐳 Docker Engine: {{ docker_version_map[ansible_facts['distribution']][ansible_facts['distribution_release']] }}"
 
 - name: Remove conflicting packages
   ansible.builtin.apt:
@@ -54,7 +54,7 @@
 
 - name: Add Docker GPG key
   ansible.builtin.get_url:
-    url: "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg"
+    url: "https://download.docker.com/linux/{{ ansible_facts['distribution'] | lower }}/gpg"
     dest: /etc/apt/keyrings/docker.asc
     mode: '0644'
 
@@ -65,7 +65,7 @@
 
 - name: Add Docker repository (Multi-arch auto-detection)
   ansible.builtin.apt_repository:
-    repo: "deb [arch={{ dpkg_arch.stdout }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/{{ ansible_distribution | lower }} {{ ansible_distribution_release }} stable"
+    repo: "deb [arch={{ dpkg_arch.stdout }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/{{ ansible_facts['distribution'] | lower }} {{ ansible_facts['distribution_release'] }} stable"
     state: present
     filename: docker
     update_cache: false
@@ -77,8 +77,8 @@
 - name: Install Docker Engine (Pinned version)
   ansible.builtin.apt:
     name:
-      - "docker-ce={{ docker_version_map[ansible_distribution][ansible_distribution_release] }}"
-      - "docker-ce-cli={{ docker_version_map[ansible_distribution][ansible_distribution_release] }}"
+      - "docker-ce={{ docker_version_map[ansible_facts['distribution']][ansible_facts['distribution_release']] }}"
+      - "docker-ce-cli={{ docker_version_map[ansible_facts['distribution']][ansible_facts['distribution_release']] }}"
       - containerd.io
       - docker-buildx-plugin
       - docker-compose-plugin
