@@ -88,6 +88,9 @@
 - name: Validate Caddyfile.j2 presence
   ansible.builtin.stat:
     path: "{{ role_path }}/templates/Caddyfile.j2"
+  delegate_to: localhost
+  run_once: true
+  become: false
   register: caddyfile_j2_stat
 
 - name: Fail if Caddyfile.j2 is missing
@@ -95,6 +98,7 @@
     msg: |
       Caddyfile.j2 is missing!
       Please copy roles/stack_ingress/templates/Caddyfile.example.j2 to Caddyfile.j2 and adjust it for your deployment.
+  run_once: true
   when: not caddyfile_j2_stat.stat.exists
 
 - name: Ensure public_net Docker network exists
