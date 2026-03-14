@@ -11,7 +11,6 @@ services:
     security_opt:
       - no-new-privileges:true
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - portainer_data:/data
       - {{ app_base_dir }}/portainer_certs:/certs:ro
     networks:
@@ -19,7 +18,6 @@ services:
     ports:
       # SEGURIDAD: Bind SOLO a la IP de Tailscale (VPN)
       # No exponer a 0.0.0.0
-      - "{{ tailscale_ip }}:9000:9000"
       - "{{ tailscale_ip }}:9443:9443"
       - "{{ tailscale_ip }}:8000:8000"
     labels:
