@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.0.1] - 2026-03-13
+
+### Fixes
+- **Portainer Edge Agent**: Fixed template to use the resolved edge key variable (`portainer_edge_key_resolved`) instead of the removed legacy variable, preventing deployment failures when using the new key map.
+
 All notable changes to NIST Hardening Suite are documented here.
 
 ## [3.0.0] - 2026-03-13
