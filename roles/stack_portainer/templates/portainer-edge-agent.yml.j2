@@ -13,7 +13,7 @@ services:
       - no-new-privileges:true
     environment:
       EDGE: "1"
-      EDGE_KEY: "{{ portainer_edge_key }}"
+      EDGE_KEY: "{{ portainer_edge_key_resolved }}"
       MTLSCACERT: "/certs/portainer-ca.crt"
 {% if portainer_edge_insecure_poll | bool %}
       EDGE_INSECURE_POLL: "1"
