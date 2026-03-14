@@ -10,6 +10,10 @@ server_role: muscle
 server_type: worker
 cloud_provider: oci
 
+# Portainer Edge-only routing:
+# muscles default to the first brain unless overridden in host_vars.
+portainer_edge_target_brain: "{{ groups['brain'][0] }}"
+
 # Worker-specific settings
 worker_enable_autoscaling: false  # For future use
 worker_max_containers: 50         # For future monitoring

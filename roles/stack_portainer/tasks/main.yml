@@ -27,11 +27,39 @@
   ansible.builtin.set_fact:
     tailscale_ip: "{{ tailscale_ip_result.stdout }}"
 
-- name: Resolve Portainer Edge key from supported variable names
+- name: Resolve target Portainer brain for Edge Agent association
+  ansible.builtin.set_fact:
+    portainer_edge_target_brain_resolved: >-
+      {{
+        (
+          portainer_edge_target_brain
+          | default((inventory_hostname if ('brain' in group_names) else groups['brain'][0]), true)
+        )
+        | string
+        | trim
+      }}
+  when: "'brain' in group_names or 'muscle' in group_names"
+
+- name: Validate resolved Portainer target brain exists in inventory
+  ansible.builtin.assert:
+    that:
+      - groups['brain'] is defined
+      - groups['brain'] | length > 0
+      - portainer_edge_target_brain_resolved in groups['brain']
+    fail_msg: >-
+      Portainer target brain '{{ portainer_edge_target_brain_resolved }}' is invalid.
+      Define portainer_edge_target_brain as one of groups['brain'].
+  when: "'brain' in group_names or 'muscle' in group_names"
+
+- name: Resolve Portainer Edge key from portainer_edge_keys_by_node map
+  # Key is mapped by exact inventory hostname (for example: brain-1, muscle-1).
   ansible.builtin.set_fact:
     portainer_edge_key_resolved: >-
-      {{ portainer_edge_key | default('') | trim }}
+      {{
+        portainer_edge_keys_by_node[inventory_hostname] | default('') | trim
+      }}
   no_log: true
+  when: "'brain' in group_names or 'muscle' in group_names"
 
 - name: Resolve Portainer Edge ID (prefer explicit, fallback to machine identity)
   ansible.builtin.set_fact:
@@ -44,23 +72,25 @@
         | string
         | trim
       }}
-  when: "'muscle' in group_names"
+  when: "'brain' in group_names or 'muscle' in group_names"
 
 - name: Validate resolved Portainer Edge ID
   ansible.builtin.assert:
     that:
       - portainer_edge_id_resolved is defined
       - portainer_edge_id_resolved | length > 0
-    fail_msg: "Portainer Edge ID is required and could not be resolved. Define portainer_edge_id in vaulted vars."
+    fail_msg: "Portainer Edge ID is required and could not be resolved. Define portainer_edge_id in vaulted vars (or rely on machine_id fallback)."
   when:
-    - "'muscle' in group_names"
+    - "'brain' in group_names or 'muscle' in group_names"
     - portainer_edge_key_resolved | length > 0
 
 - name: Inform skip when Edge key is missing
   ansible.builtin.debug:
-    msg: "Skipping Portainer Edge Agent deployment: define portainer_edge_key in Vault."
+    msg: >-
+      Skipping Portainer Edge Agent deployment on {{ inventory_hostname }}.
+      Add portainer_edge_keys_by_node.{{ inventory_hostname }} to Vault.
   when:
-    - "'muscle' in group_names"
+    - "'brain' in group_names or 'muscle' in group_names"
     - portainer_edge_key_resolved | length == 0
 
 # ------------------------------------------------------------------------------
@@ -111,8 +141,7 @@
         (
           [
             'IP:' ~ tailscale_ip,
-            'DNS:' ~ inventory_hostname,
-            'DNS:' ~ groups['brain'][0]
+            'DNS:' ~ inventory_hostname
           ]
           + ([('IP:' ~ hostvars[inventory_hostname]["ansible_host"]) ] if (hostvars[inventory_hostname]["ansible_host"] is defined and (hostvars[inventory_hostname]["ansible_host"] | regex_search('^\\d+\\.\\d+\\.\\d+\\.\\d+$'))) else [])
         ) | unique
@@ -125,7 +154,7 @@
     -keyout {{ app_base_dir }}/portainer_certs/portainer.key
     -out {{ app_base_dir }}/portainer_certs/portainer.crt
     -days {{ portainer_tls_cert_days | default(397) }}
-    -subj "/CN={{ groups['brain'][0] }}"
+    -subj "/CN={{ inventory_hostname }}"
     -addext "subjectAltName={{ portainer_tls_san_list | join(',') }}"
   args:
     creates: "{{ app_base_dir }}/portainer_certs/portainer.crt"
@@ -178,7 +207,7 @@
     state: directory
     mode: '0755'
   when:
-    - "'muscle' in group_names"
+    - "'brain' in group_names or 'muscle' in group_names"
     - portainer_edge_key_resolved | length > 0
 
 - name: Ensure Edge Agent data directory exists
@@ -189,7 +218,7 @@
     group: '65534'
     mode: '0750'
   when:
-    - "'muscle' in group_names"
+    - "'brain' in group_names or 'muscle' in group_names"
     - portainer_edge_key_resolved | length > 0
 
 - name: Ensure Edge Agent cert directory exists
@@ -200,28 +229,28 @@
     group: root
     mode: '0755'
   when:
-    - "'muscle' in group_names"
+    - "'brain' in group_names or 'muscle' in group_names"
     - portainer_edge_key_resolved | length > 0
 
 - name: Install Portainer CA cert for Edge Agent TLS validation
   ansible.builtin.copy:
     dest: "{{ app_base_dir }}/portainer_agent_certs/portainer-ca.crt"
-    content: "{{ hostvars[groups['brain'][0]].portainer_tls_cert_slurp.content | b64decode }}"
+    content: "{{ hostvars[portainer_edge_target_brain_resolved].portainer_tls_cert_slurp.content | b64decode }}"
     owner: root
     group: root
     mode: '0644'
   when:
-    - "'muscle' in group_names"
+    - "'brain' in group_names or 'muscle' in group_names"
     - portainer_edge_key_resolved | length > 0
     - groups['brain'] is defined
-    - hostvars[groups['brain'][0]].portainer_tls_cert_slurp is defined
+    - hostvars[portainer_edge_target_brain_resolved].portainer_tls_cert_slurp is defined
 
 - name: Read Docker socket metadata for Edge Agent group mapping
   ansible.builtin.stat:
     path: /var/run/docker.sock
   register: docker_sock_stat
   when:
-    - "'muscle' in group_names"
+    - "'brain' in group_names or 'muscle' in group_names"
     - portainer_edge_key_resolved | length > 0
 
 - name: Validate Docker socket exists for Edge Agent
@@ -231,14 +260,14 @@
       - docker_sock_stat.stat.gid is defined
     fail_msg: "Docker socket /var/run/docker.sock is missing or gid is unavailable on this host."
   when:
-    - "'muscle' in group_names"
+    - "'brain' in group_names or 'muscle' in group_names"
     - portainer_edge_key_resolved | length > 0
 
 - name: Set Docker socket gid fact for Edge Agent supplemental group
   ansible.builtin.set_fact:
     docker_socket_gid: "{{ docker_sock_stat.stat.gid | string }}"
   when:
-    - "'muscle' in group_names"
+    - "'brain' in group_names or 'muscle' in group_names"
     - portainer_edge_key_resolved | length > 0
 
 - name: Deploy Portainer Edge Agent Compose File
@@ -248,7 +277,7 @@
     mode: '0640'
   no_log: true
   when:
-    - "'muscle' in group_names"
+    - "'brain' in group_names or 'muscle' in group_names"
     - portainer_edge_key_resolved | length > 0
 
 - name: Deploy Portainer Agent Stack
@@ -257,7 +286,7 @@
     state: present
     pull: always
   when:
-    - "'muscle' in group_names"
+    - "'brain' in group_names or 'muscle' in group_names"
     - portainer_edge_key_resolved | length > 0
 
 - name: Verify EDGE_INSECURE_POLL is effectively applied (self-signed mode)
@@ -266,7 +295,7 @@
     grep -qx 'EDGE_INSECURE_POLL=1'
   changed_when: false
   when:
-    - "'muscle' in group_names"
+    - "'brain' in group_names or 'muscle' in group_names"
     - portainer_edge_key_resolved | length > 0
     - portainer_edge_insecure_poll | bool
 
@@ -277,11 +306,12 @@
       - "The Portainer Edge Agent uses pull-based architecture with ZERO open ports."
       - "✅ Reduced lateral movement risk: No API endpoints exposed on Tailscale network."
       - ""
-      - "SECURITY NOTE: Docker socket is still mounted (read-only)."
+      - "SECURITY NOTE: Docker socket is mounted for agent management operations."
       - "If the host is compromised, containers can still be accessed via Docker socket."
       - ""
-      - "Edge Agent connects to Portainer server at: {{ portainer_server_url }}"
+      - "Edge Agent target Portainer brain: {{ portainer_edge_target_brain_resolved }}"
+      - "Edge Agent connects to Portainer server at: https://{{ portainer_edge_target_brain_resolved }}:9443"
   when:
-    - "'muscle' in group_names"
+    - "'brain' in group_names or 'muscle' in group_names"
     - portainer_edge_key_resolved | length > 0
   tags: [security, portainer]

@@ -8,13 +8,13 @@
 # ===== SERVER GROUPS =====
 [brain]
 # Management Node (Hetzner, DigitalOcean, etc.)
-brain-hetzner ansible_host=YOUR_BRAIN_PUBLIC_IP ansible_user=root public_ip=YOUR_BRAIN_PUBLIC_IP node_role=management
+brain-1 ansible_host=YOUR_BRAIN_PUBLIC_IP ansible_user=root public_ip=YOUR_BRAIN_PUBLIC_IP node_role=management
 
 [muscle]
 # Compute Workers (Oracle Cloud, AWS, GCP, etc.)
-muscle-oci-1 ansible_host=YOUR_MUSCLE_PUBLIC_IP ansible_user=ubuntu public_ip=YOUR_MUSCLE_PUBLIC_IP node_role=worker
+muscle-1 ansible_host=YOUR_MUSCLE_PUBLIC_IP ansible_user=ubuntu public_ip=YOUR_MUSCLE_PUBLIC_IP node_role=worker
 # Add more workers as needed:
-# muscle-oci-2 ansible_host=ANOTHER_PUBLIC_IP ansible_user=ubuntu public_ip=ANOTHER_PUBLIC_IP node_role=worker
+# muscle-2 ansible_host=ANOTHER_PUBLIC_IP ansible_user=ubuntu public_ip=ANOTHER_PUBLIC_IP node_role=worker
 
 # ===== FUNCTIONAL GROUPS =====
 [observability:children]
