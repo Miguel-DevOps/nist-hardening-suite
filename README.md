@@ -22,7 +22,7 @@
 > 
 > **Business Model:** The hardening script is free (MIT licensed). I charge a monthly retainer for continuous monitoring via CrowdSec, ensuring your infrastructure stays compliant.
 
-> **Current Release:** `v1.3.1` (Caddy security integration audit fixes across AC-2, AU-12, SI-4, SC-7, and configuration hygiene)
+> **Current Release:** `v3.0.0` (Portainer Edge key-per-node migration, brain-target routing, and server hardening for the Edge tunnel model)
 
 ---
 
@@ -65,10 +65,10 @@ uv run ansible-galaxy collection install -r requirements.yml
 Edit `inventory/hosts.ini` with your server IPs and credentials:
 ```ini
 [brain]
-brain-hetzner ansible_host=YOUR_PUBLIC_IP ansible_user=root public_ip=YOUR_PUBLIC_IP
+brain-1 ansible_host=YOUR_PUBLIC_IP ansible_user=root public_ip=YOUR_PUBLIC_IP
 
 [muscle]  
-muscle-oci-1 ansible_host=YOUR_PUBLIC_IP ansible_user=ubuntu public_ip=YOUR_PUBLIC_IP
+muscle-1 ansible_host=YOUR_PUBLIC_IP ansible_user=ubuntu public_ip=YOUR_PUBLIC_IP
 ```
 
 ### 3. Set Up Encrypted Secrets
@@ -80,6 +80,20 @@ ansible-vault encrypt group_vars/all/secrets.yml
 # Edit encrypted file
 ansible-vault edit group_vars/all/secrets.yml
 ```
+
+For Portainer Edge-only deployments, add one entry per Edge environment (node) to `portainer_edge_keys_by_node` in your Vault. Keys use the exact inventory hostname. Recommended naming from day one: `brain-1`, `muscle-1`, `brain-2`, `muscle-2`, etc.
+
+```yaml
+portainer_edge_keys_by_node:
+  brain-1: "EDGE_KEY_FOR_BRAIN_1"
+  muscle-1: "EDGE_KEY_FOR_MUSCLE_1"
+  # brain-2: "EDGE_KEY_FOR_BRAIN_2"
+  # muscle-2: "EDGE_KEY_FOR_MUSCLE_2"
+```
+
+Default routing:
+- Brain hosts associate their Edge Agent to themselves.
+- Muscle hosts associate to `groups['brain'][0]` unless `portainer_edge_target_brain` is overridden per host or group.
 
 For automated ACL management, also set `tailscale_acl_client_id` and a `tailscale_acl_key` that starts with `tskey-client-`.
 Legacy long-lived API tokens are not supported by the current ACL automation flow.
@@ -148,7 +162,7 @@ The suite deploys **Portainer Edge Agent** only, which uses a **pull‑based arc
 - **Zero open ports**: Edge Agents poll the Portainer server every 5 seconds via outbound connections
 - **Reduced attack surface**: No API endpoints exposed on the Tailscale network  
 - **True Zero Trust**: Agents initiate connections; they don't listen for incoming requests
-- **Docker socket**: Mounted read‑only (`:ro`) to prevent container creation/removal
+- **Docker socket**: Mounted in the agent container (required for Docker management operations). Treat as privileged access and isolate via Tailscale + host hardening.
 
 ### 🔐 Tailscale ACLs (Zero Trust Networking)
 **Required for production deployments**:
@@ -166,7 +180,7 @@ Safety valve: nuke is blocked on hosts in the `production` inventory group.
 ### ✅ Accepted Risks
 
 - **SC‑28 (Data at Rest)**: Implemented via Ansible Vault for secrets. Disk encryption must be handled at the provisioning layer (Tofu/Terraform). This suite does NOT encrypt disks and only audits for existing LUKS. *Future releases may include automated LUKS provisioning as an optional feature.*
-- **Docker Socket Access (Portainer Edge Agent)**: Risk Acceptance. The Portainer Edge Agent requires Docker socket access. This is mitigated by the pull-based architecture and Tailscale isolation, but represents a residual risk of privilege escalation if the container is compromised. Even with a read-only mount, the Docker socket provides root-level access to the host. *Future release: Docker Socket Proxy (Tecnativa) to restrict API calls.*
+- **Docker Socket Access (Portainer Edge Agent)**: Risk Acceptance. The Portainer Edge Agent requires Docker socket access. This is mitigated by pull-based architecture and Tailscale isolation, but still represents residual privilege-escalation risk if the container is compromised. *Future release: Docker Socket Proxy (Tecnativa) to restrict API calls.*
 - **OCI Killswitch**: The aggressive iptables flushing may cause temporary loss of SSH access if UFW fails to start. Backup rules are stored in `/etc/iptables/rules.v{4,6}.backup` for manual recovery.
 
 ## 🎯 Execution Control & Tags
@@ -425,7 +439,7 @@ Complete documentation for this project:
 |----------|---------|
 | **[ARCHITECTURE.md](ARCHITECTURE.md)** | System design, component architecture, NIST control mapping, and technical decisions |
 | **[ROADMAP.md](ROADMAP.md)** | Priority roadmap by urgency (U0/U1/U2), current strengths, and future implementations |
-| **[CHANGELOG.md](CHANGELOG.md)** | Version history and release notes (`v1.0.0` to `v1.3.1`) |
+| **[CHANGELOG.md](CHANGELOG.md)** | Version history and release notes (`v1.0.0` to `v3.0.0`) |
 | **[CONTRIBUTING.md](CONTRIBUTING.md)** | Contribution guidelines, development setup, and code quality standards |
 | **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** | Community guidelines and expected behavior |
 | **[RELEASE.md](RELEASE.md)** | Version-agnostic release procedure aligned with `uv` and current QA gates |

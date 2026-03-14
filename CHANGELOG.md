@@ -2,6 +2,24 @@
 
 All notable changes to NIST Hardening Suite are documented here.
 
+## [3.0.0] - 2026-03-13
+
+### Breaking Changes
+- **Portainer Edge key input model changed**: Edge authentication now resolves from `portainer_edge_keys_by_node` keyed by exact inventory hostname.
+  Single-value `portainer_edge_key` is no longer used in current role logic.
+
+### Features
+- **Brain-aware Edge association**: Added `portainer_edge_target_brain` routing with validation against inventory `groups['brain']`.
+- **Edge Agent scope expansion**: Edge deployment flow now supports both `brain` and `muscle` groups where keys are present.
+
+### Security
+- **Portainer server hardening**: Removed direct Docker socket mount from the Portainer server service and removed `9000` publish in the server template, keeping the Edge tunnel path (`9443`/`8000`).
+- **TLS identity alignment**: Portainer TLS certificate CN now follows `inventory_hostname` and SAN generation removes unrelated default DNS aliases.
+
+### Documentation
+- Updated release and roadmap references to align with the `v3.0.0` release tag and current Portainer Edge behavior.
+- Updated contributing guidance and secrets examples for `portainer_edge_keys_by_node` usage.
+
 ## [2.0.0] - 2026-03-13
 
 ### Breaking Changes

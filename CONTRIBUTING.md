@@ -130,11 +130,12 @@ See `.github/workflows/` for workflow definitions.
 #### Handling Secrets Correctly
 ```bash
 # ❌ WRONG - This exposes the secret
-portainer_edge_key: "abcd1234xyz"
+portainer_edge_keys_by_node:
+   brain-1: "abcd1234xyz"
 
 # ✅ RIGHT - Use Ansible Vault
 ansible-vault encrypt group_vars/all/secrets.yml
-# Then reference: {{ portainer_edge_key }} (decrypted at runtime only)
+# Then reference: {{ portainer_edge_keys_by_node[inventory_hostname] }} (decrypted at runtime only)
 ```
 
 #### Secret Detection Automated Protection
@@ -173,7 +174,7 @@ All code contributions must maintain compliance with implemented NIST controls:
 
 ### Container Security Standards
 - All containers must have `security_opt: [no-new-privileges:true]`
-- Docker socket mounts must be read-only (`:ro`)
+- Docker socket mounts are high-risk and must only be used when operationally required, with explicit risk documentation
 - Containers should run as unprivileged users (uid 65534 minimum)
 - Resource limits must be defined (CPU, memory)
 - Never run as root unless architecturally necessary

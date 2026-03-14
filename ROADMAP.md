@@ -13,11 +13,13 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 | `v1.2.0` | 2026-03-08 | tag on `2b621a1` | Portainer TLS hardening, Tailscale ACL improvements, observability fixes |
 | `v1.3.0` | 2026-03-12 | tag on `21a5d19` | Security hardening fixes, Tailscale auth key hardening, Portainer Edge improvements, `uv` toolchain migration |
 | `v1.3.1` | 2026-03-12 | tag on `c19f7c7` | Caddy security integration audit fixes across AC-2, AU-12, SI-4, SC-7, and configuration hygiene |
+| `v2.0.0` | 2026-03-13 | tag on `6416f11` | Breaking release: Tailscale ACL OAuth-only credentials and release governance alignment |
+| `v3.0.0` | 2026-03-13 | release tag on current `master` | Breaking release: Portainer Edge key-per-node migration, brain routing, and server hardening |
 
-### What Is Working Well in `v1.3.1`
+### What Is Working Well in `v3.0.0`
 - NIST-focused architecture remains consistent (`AC-2`, `CM-7`, `SC-7`, `SI-4`, `AU-12`, `SC-28` audit scope).
 - Security stack is cohesive: SSH hardening, UFW/fail2ban, CrowdSec, Tailscale, Vault workflow.
-- Recent releases improved runtime compatibility, Portainer/Tailscale hardening, observability reliability, and Caddy security monitoring/auditability.
+- Recent releases improved runtime compatibility, Portainer/Tailscale hardening, observability reliability, Caddy security monitoring/auditability, and ACL policy safety checks.
 - Tooling modernization is in place with `uv` and Python `3.14`.
 
 ### Improvement Focus (Without Overstating Risk)
@@ -48,7 +50,7 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 - OWASP: `A08`, `A09`.
 
 ### Planned Release Target
-- `v1.2.1` - Operational hardening and documentation parity.
+- `v2.0.1` - Operational hardening and documentation parity.
 
 ## U1 - High (30-60 days)
 
@@ -70,7 +72,7 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 - OWASP: `A09`.
 
 ### Planned Release Target
-- `v1.3.0` - Compliance evidence and operability consistency.
+- `v2.1.0` - Compliance evidence and operability consistency.
 
 ## U2 - Strategic (60-120 days)
 
@@ -84,7 +86,7 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 - Improve multi-node resilience and integration templates.
 
 ### Planned Release Target
-- `v1.4.0` - Policy and scale maturity.
+- `v2.2.0` - Policy and scale maturity.
 
 ## Future Implementations (Backlog)
 - Interactive setup/diagnostics wizard.
@@ -111,4 +113,4 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 ---
 
 Maintained by Miguel Lozano - Site Reliability Engineer & FinOps Architect
-Last updated: 2026-03-12
+Last updated: 2026-03-13

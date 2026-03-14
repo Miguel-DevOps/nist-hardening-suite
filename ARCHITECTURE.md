@@ -31,8 +31,8 @@ graph TB
     subgraph "Monitoring & Management"
         CrowdSec[CrowdSec Console] -->|Hybrid signals| OCI
         CrowdSec -->|Hybrid signals| Hetzner
-        Portainer[Portainer UI] -->|Docker API| OCI
-        Portainer -->|Docker API| Hetzner
+        Portainer[Portainer UI] -->|Edge tunnel via 8000/9443| OCI
+        Portainer -->|Edge tunnel via 8000/9443| Hetzner
     end
 ```
 
@@ -198,7 +198,7 @@ The suite deploys **Portainer Edge Agent** by default (`portainer-edge-agent.yml
 - **Zero open ports**: Edge Agents poll the Portainer server every 5 seconds via outbound connections
 - **Reduced attack surface**: No API endpoints exposed on the Tailscale network
 - **True Zero Trust**: Agents initiate connections; they don't listen for incoming requests
-- **Docker socket**: Mounted read‑only (`:ro`) to prevent container creation/removal
+- **Docker socket**: Mounted in the Edge Agent container for management operations (privileged interface; isolate and monitor accordingly)
 
 ### Caddy Ingress & Zero Trust
 The default `Caddyfile.j2` includes a `(vpn_only)` block that restricts access to Tailscale IPs (100.64.0.0/10). All example site definitions import this block, enforcing Zero Trust at the ingress layer. Remove `import vpn_only` from any site that requires public internet access.
