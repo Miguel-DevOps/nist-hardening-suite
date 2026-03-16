@@ -22,7 +22,7 @@
 > 
 > **Business Model:** The hardening script is free (MIT licensed). I charge a monthly retainer for continuous monitoring via CrowdSec, ensuring your infrastructure stays compliant.
 
-> **Current Release:** `v3.0.0` (Portainer Edge key-per-node migration, brain-target routing, and server hardening for the Edge tunnel model)
+> **Current Release:** `v4.1.1` (Security audit workflow tightening, detect-secrets baseline repair, overlay-only transport enforcement, Uptime Kuma decoupled from observability, Caddyfile integration modes, and documentation alignment)
 
 ---
 
