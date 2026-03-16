@@ -1,0 +1,17 @@
+services:
+  uptime-kuma:
+    image: ${UPTIME_KUMA_IMAGE:-louislam/uptime-kuma:2.0.2}
+    container_name: uptime-kuma
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ${UPTIME_KUMA_DATA_DIR:-/srv/app/recommended-apps/uptime-kuma/data}:/app/data
+    expose:
+      - "3001"
+    networks:
+      - public_net
+
+networks:
+  public_net:
+    external: true
