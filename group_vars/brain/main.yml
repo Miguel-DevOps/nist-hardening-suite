@@ -14,8 +14,10 @@ cloud_provider: hetzner
 # brains associate their own Edge Agent to themselves by default.
 portainer_edge_target_brain: "{{ inventory_hostname }}"
 
-# Monitoring (for future use)
-enable_monitoring: false  # Set to true if you have sufficient resources for VictoriaMetrics, Grafana, Loki, Uptime Kuma
+# Observability
+# Brain hosts the monitoring stack UI/services and may also export local metrics.
+enable_observability_stack: true
+enable_metrics_exporters: true
 monitoring_port: 9100
 
 # Backup configuration (for future use)

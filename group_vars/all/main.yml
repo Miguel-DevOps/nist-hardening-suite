@@ -1,10 +1,32 @@
 ---
 # Global network defaults
-# Set this if you use Headscale or a custom subnet.
+# Source of truth for the private management overlay used by non-bootstrap playbooks.
+# Set this if you use Headscale or another VPN subnet for remote administration.
 tailscale_subnet: "100.64.0.0/10"
+
+# Observability stack network (for VictoriaMetrics/Grafana/Loki)
+observability_stack_network_name: "public_net"
+observability_stack_network_external: true
+
+# Portainer stack environment defaults for observability compose
+observability_stack_victoria_port: "8428:8428"
+observability_stack_loki_port: "3100:3100"
+observability_stack_grafana_port: "3000:3000"
+
+# Observability compose deployment defaults
+observability_compose_pull_policy: "missing"   # valid: always, missing, never, policy
+observability_compose_recreate_policy: "auto"  # valid: always, never, auto
+observability_compose_wait_timeout: 300
+observability_cadvisor_port: 18080
 
 # Keep dual-stack filtering enabled by default unless your environment is IPv4-only.
 ufw_enable_ipv6: true
 
 # Control persistent Tailscale webclient exposure (:5252).
 tailscale_enable_webclient: false
+
+# Ingress deployment defaults (enterprise-safe and idempotent by default).
+# Override per environment when you need forced refresh during controlled rollouts.
+ingress_compose_pull_policy: "missing"   # valid: always, missing, never, policy
+ingress_compose_recreate_policy: "auto"  # valid: always, never, auto
+ingress_compose_wait_timeout: 120

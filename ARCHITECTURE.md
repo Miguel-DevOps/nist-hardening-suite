@@ -188,7 +188,9 @@ nist-hardening-suite/
 - **VictoriaMetrics** – Time‑series database for metrics
 - **Grafana** – Dashboards and visualization
 - **Loki** – Log aggregation and querying
-- **Uptime Kuma** – Service availability monitoring
+
+### Recommended Applications (Optional)
+- **Uptime Kuma** – Service availability monitoring as a standalone app under `recommended_apps/` (decoupled from core observability role)
 
 ## 🔒 Security Considerations & Known Risks
 

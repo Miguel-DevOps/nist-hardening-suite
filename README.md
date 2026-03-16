@@ -123,9 +123,82 @@ uv run ansible-playbook -i inventory/hosts.ini stacks.yml --ask-vault-pass
 ### 5.1 Optional Add-on: Observability Stack (Anti-Bloat)
 Use this only on servers with sufficient resources.
 ```bash
-# Deploy VictoriaMetrics + Grafana + Loki + Uptime Kuma (optional)
+# Deploy VictoriaMetrics + Grafana + Loki (optional)
 uv run ansible-playbook -i inventory/hosts.ini monitoring.yml --ask-vault-pass
 ```
+
+Observability variable model:
+- `enable_observability_stack`: node hosts Grafana/VictoriaMetrics/Loki preparation
+- `enable_metrics_exporters`: node is expected to expose metrics toward brain
+- `observability_network_name`: Docker bridge network name used by Node Exporter/cAdvisor (Vault-backed in `group_vars/all/secrets.yml`)
+- `observability_cadvisor_port`: host port published for cAdvisor metrics (default `18080` to avoid common `8080` collisions)
+- `observability_stack_host_ip`: bind address used by observability stack env rendering (Vault-backed in `group_vars/all/secrets.yml`)
+- `observability_stack_network_name`: Docker network used by the observability stack
+- `observability_stack_network_external`: whether stack network is external (`true`) or managed bridge (`false`)
+- Recommended architecture: `brain=true/true`, `muscle=false/true`
+
+Observability compose source of truth is centralized in role templates:
+- `roles/observability/templates/exporters-docker-compose.yml.j2` (single template for brain + muscle)
+- `roles/observability/templates/observability-stack-docker-compose.yml.j2` (brain stack)
+
+After running `monitoring.yml`, Ansible prepares these generated artifacts on target hosts:
+- `/srv/app/observability/exporters/docker-compose.yml` (on nodes with `enable_metrics_exporters: true`)
+- `/srv/app/observability/docker-compose.yml` (on brain when `enable_observability_stack: true`)
+- `/srv/app/observability/.env` (rendered from Vault-backed variables with mode `0600`)
+- `/srv/app/observability/.env.example` (reference template)
+
+Deployment of observability containers is automated by Ansible via `community.docker.docker_compose_v2`.
+Sensitive runtime values are stored in `group_vars/all/secrets.yml` and rendered on-host into `/srv/app/observability/.env` with restrictive permissions.
+
+Selective deployment for observability is available through `monitoring.yml` tags:
+- `exporters`: deploy Node Exporter + cAdvisor on nodes with `enable_metrics_exporters: true`
+- `observability_stack` or `stack`: deploy VictoriaMetrics + Loki + Grafana on brain nodes
+- `node_exporter`, `cadvisor`, `victoriametrics`, `loki`, `grafana`: deploy only that service while still preparing required shared assets
+
+> **Note:** For NIST/CIS-aligned segmentation, Node Exporter and cAdvisor are configured in bridge mode with read-only host mounts (`/proc`, `/sys`, `/`). Advanced host metrics that require host mode will be evaluated in future releases with dedicated segmentation and compensating controls.
+
+> **cAdvisor security profile:** cAdvisor runs in a least-privilege profile compatible with hardened Docker hosts: no `privileged`, no host namespace sharing, `no-new-privileges`, read-only filesystem, and reduced metric collection. On Docker hosts using `userns-remap`, this preserves isolation but can reduce container-level visibility compared with a fully privileged deployment.
+
+Post-deploy validation (recommended after each `monitoring.yml` run):
+
+```bash
+# 1) Validate exporters are up on all expected nodes
+uv run ansible all -i inventory/hosts.ini -m shell -a "docker ps --format '{{.Names}} {{.Status}}' | grep -E 'node-exporter|cadvisor'"
+
+# 2) Validate metrics endpoints locally on each node
+uv run ansible all -i inventory/hosts.ini -m shell -a "curl -fsS http://127.0.0.1:9100/metrics >/dev/null && echo node_exporter_ok"
+uv run ansible all -i inventory/hosts.ini -m shell -a "curl -fsS http://127.0.0.1:18080/metrics >/dev/null && echo cadvisor_ok || echo cadvisor_limited_or_down"
+
+# 3) Validate scrape targets from brain (VictoriaMetrics)
+uv run ansible brain -i inventory/hosts.ini -m shell -a "curl -fsS 'http://127.0.0.1:8428/api/v1/targets' | grep -E 'node-exporter|cadvisor'"
+```
+
+Expected result:
+- `node_exporter_ok` should be present on exporter-enabled nodes.
+- `cadvisor_ok` is ideal; `cadvisor_limited_or_down` can occur on hardened nodes and should be evaluated against your accepted observability baseline.
+- Brain target view should list Node Exporter consistently; cAdvisor may be partial depending on hardening constraints.
+
+Selective cleanup for observability is available through `nuke.yml` tags:
+- `exporters`: removes Node Exporter + cAdvisor and shared exporters assets
+- `observability_stack`: removes VictoriaMetrics + Loki + Grafana and shared stack assets
+- `node_exporter`, `cadvisor`, `victoriametrics`, `loki`, `grafana`, `uptime_kuma`: removes only that service and its dedicated data when applicable (`uptime_kuma` tag is kept for legacy cleanup compatibility)
+- `observability_networks`: attempts to remove observability networks to prevent stale-name reuse on future redeployments
+
+Warning: service-specific cleanup can leave shared observability assets in place by design, while broader tags such as `observability_stack`, `exporters`, `observability`, or `monitoring` can break remaining observability components if used partially.
+
+### 5.2 Recommended Applications (Optional, Plug-and-Play)
+Recommended apps that are not part of the core observability role now live under `recommended_apps/`.
+
+Current catalog:
+- `recommended_apps/uptime-kuma/docker-compose.yml`
+- `recommended_apps/uptime-kuma/.env.example`
+
+Deployment model:
+- Core platform keeps Caddy as the standard ingress boundary and Zero Trust choke point.
+- App compose files are optional artifacts designed for Portainer UI or Docker Compose.
+- For secure defaults, prefer exposing apps through Caddy on `public_net` instead of opening direct host ports.
+
+See `APP_RECOMMENDED_GUIDE.md` for secure deployment patterns and operational guidance.
 
 ### 6. Verify & Monitor
 ```bash

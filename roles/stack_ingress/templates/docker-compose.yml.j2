@@ -6,6 +6,7 @@ services:
     image: {{ caddy_image }}
     container_name: caddy-waf
     restart: unless-stopped
+    read_only: true
     ports:
       - "80:80/tcp"
       - "443:443/tcp"
@@ -18,9 +19,8 @@ services:
       - {{ app_base_dir }}/ingress/certs:/etc/caddy/certs:ro
       - {{ app_base_dir }}/ingress/Caddyfile:/etc/caddy/Caddyfile:ro
       - /var/log/caddy:/var/log/caddy
-    environment:
-      - WAF_ENABLED=true
-      - ACME_AGREE=true
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid,nodev
     user: "{{ caddy_user_uid }}:{{ caddy_user_gid }}"
     cap_drop:
       - ALL
@@ -37,11 +37,11 @@ services:
           cpus: "1.0"
           memory: "512M"
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-S", "http://localhost:2020"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:2020/health || exit 1"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
-      start_period: 40s
+      start_period: 30s
 
 networks:
   public_net:

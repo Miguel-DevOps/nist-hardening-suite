@@ -1,0 +1,373 @@
+---
+- name: Ensure observability base directory exists
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}/observability"
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  tags: [observability, monitoring, stack, observability_stack, victoriametrics, loki, grafana, observability_assets]
+
+- name: Gather Docker host info for observability stack deployment
+  community.docker.docker_host_info:
+    networks: true
+  register: observability_docker_host_info
+  changed_when: false
+  failed_when: false
+  tags: [observability, monitoring, stack, observability_stack, victoriametrics, loki, grafana, observability_networks, observability_assets]
+
+- name: Assert Docker is available for observability deployment
+  ansible.builtin.assert:
+    that:
+      - observability_docker_host_info.can_talk_to_docker | default(false)
+    fail_msg: >-
+      Docker is not reachable on {{ inventory_hostname }}.
+      Observability deployment requires a running Docker daemon and API access.
+  tags: [observability, monitoring, stack, observability_stack, victoriametrics, loki, grafana, observability_assets]
+
+- name: Assert observability secrets are configured
+  ansible.builtin.assert:
+    that:
+      - observability_grafana_admin_user is defined
+      - observability_grafana_admin_user | length > 0
+      - observability_grafana_admin_password is defined
+      - observability_grafana_admin_password | length > 0
+      - observability_grafana_root_url is defined
+      - observability_grafana_root_url | length > 0
+    fail_msg: >-
+      Define observability_grafana_admin_user, observability_grafana_admin_password,
+      and observability_grafana_root_url
+      in group_vars/all/secrets.yml before deploying the observability stack.
+  tags: [observability, monitoring, stack, observability_stack, victoriametrics, loki, grafana, observability_assets]
+
+- name: Check Docker daemon.json presence for observability userns-remap
+  ansible.builtin.stat:
+    path: /etc/docker/daemon.json
+  register: observability_daemon_json_stat
+  tags: [observability, monitoring, stack, observability_stack, victoriametrics, loki, grafana, observability_assets]
+
+- name: Read Docker daemon.json for observability userns-remap
+  ansible.builtin.slurp:
+    path: /etc/docker/daemon.json
+  register: observability_daemon_json_file
+  when: observability_daemon_json_stat.stat.exists | default(false)
+  tags: [observability, monitoring, stack, observability_stack, victoriametrics, loki, grafana, observability_assets]
+
+- name: Parse Docker daemon.json for observability userns-remap
+  ansible.builtin.set_fact:
+    observability_docker_daemon_config: >-
+      {{ (observability_daemon_json_file.content | default('e30=') | b64decode | from_json) if (observability_daemon_json_stat.stat.exists | default(false)) else {} }}
+  tags: [observability, monitoring, stack, observability_stack, victoriametrics, loki, grafana, observability_assets]
+
+- name: Detect Docker userns-remap status for observability bind mounts
+  ansible.builtin.set_fact:
+    observability_userns_remap_value: >-
+      {{ ((observability_docker_daemon_config | default({})).get('userns-remap', '')) | string }}
+  tags: [observability, monitoring, stack, observability_stack, victoriametrics, loki, grafana, observability_assets]
+
+- name: Derive observability userns-remap flags
+  ansible.builtin.set_fact:
+    observability_userns_enabled: >-
+      {{ observability_userns_remap_value | length > 0 }}
+    observability_userns_remap_user: >-
+      {{ 'dockremap' if observability_userns_remap_value == 'default' else (observability_userns_remap_value.split(':') | first) }}
+  tags: [observability, monitoring, stack, observability_stack, victoriametrics, loki, grafana, observability_assets]
+
+- name: Check /etc/subuid presence for observability
+  ansible.builtin.stat:
+    path: /etc/subuid
+  register: observability_subuid_stat
+  when: observability_userns_enabled | bool
+  tags: [observability, monitoring, stack, observability_stack, victoriametrics, loki, grafana, observability_assets]
+
+- name: Check /etc/subgid presence for observability
+  ansible.builtin.stat:
+    path: /etc/subgid
+  register: observability_subgid_stat
+  when: observability_userns_enabled | bool
+  tags: [observability, monitoring, stack, observability_stack, victoriametrics, loki, grafana, observability_assets]
+
+- name: Read /etc/subuid for observability userns-remap
+  ansible.builtin.slurp:
+    path: /etc/subuid
+  register: observability_subuid_file
+  when:
+    - observability_userns_enabled | bool
+    - observability_subuid_stat.stat.exists | default(false)
+  tags: [observability, monitoring, stack, observability_stack, victoriametrics, loki, grafana, observability_assets]
+
+- name: Read /etc/subgid for observability userns-remap
+  ansible.builtin.slurp:
+    path: /etc/subgid
+  register: observability_subgid_file
+  when:
+    - observability_userns_enabled | bool
+    - observability_subgid_stat.stat.exists | default(false)
+  tags: [observability, monitoring, stack, observability_stack, victoriametrics, loki, grafana, observability_assets]
+
+- name: Resolve effective host UID/GID offsets for observability data paths
+  ansible.builtin.set_fact:
+    observability_uid_offset: >-
+      {{ ((observability_subuid_file.content | default('') | b64decode) | regex_findall('(?m)^' ~ observability_userns_remap_user ~ ':(\d+):') | first | default('0')) | int }}
+    observability_gid_offset: >-
+      {{ ((observability_subgid_file.content | default('') | b64decode) | regex_findall('(?m)^' ~ observability_userns_remap_user ~ ':(\d+):') | first | default('0')) | int }}
+  tags: [observability, monitoring, stack, observability_stack, victoriametrics, loki, grafana, observability_assets]
+
+- name: Ensure observability stack network exists when managed by this role
+  community.docker.docker_network:
+    name: "{{ observability_stack_network_name }}"
+    driver: bridge
+    state: present
+  when: not (observability_stack_network_external | bool)
+  tags: [observability, monitoring, stack, observability_stack, victoriametrics, loki, grafana, observability_networks]
+
+- name: Assert external observability stack network exists
+  ansible.builtin.assert:
+    that:
+      - >-
+        (observability_docker_host_info.networks | default([])
+        | selectattr('Name', 'equalto', observability_stack_network_name)
+        | list | length) > 0
+    fail_msg: >-
+      External Docker network {{ observability_stack_network_name }} does not exist on {{ inventory_hostname }}.
+      Create it before deploying the observability stack or set observability_stack_network_external: false.
+  when: observability_stack_network_external | bool
+  tags: [observability, monitoring, stack, observability_stack, victoriametrics, loki, grafana, observability_networks]
+
+- name: Ensure VictoriaMetrics data directory exists (mapped root)
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}/observability/victoria-data"
+    state: directory
+    mode: '0755'
+    owner: "{{ (observability_uid_offset | int) + 0 }}"
+    group: "{{ (observability_gid_offset | int) + 0 }}"
+    recurse: true
+  tags: [observability, monitoring, stack, observability_stack, victoriametrics]
+
+- name: Ensure Grafana data directory exists (UID 472)
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}/observability/grafana-data"
+    state: directory
+    mode: '0775'
+    owner: "{{ (observability_uid_offset | int) + 472 }}"
+    group: "{{ (observability_gid_offset | int) + 472 }}"
+    recurse: true
+  tags: [observability, monitoring, stack, observability_stack, grafana]
+
+- name: Ensure Loki data directory exists (UID 10001)
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}/observability/loki-data"
+    state: directory
+    mode: '0775'
+    owner: "{{ (observability_uid_offset | int) + 10001 }}"
+    group: "{{ (observability_gid_offset | int) + 10001 }}"
+    recurse: true
+  tags: [observability, monitoring, stack, observability_stack, loki]
+
+- name: Create VictoriaMetrics scrape config (Dynamic Inventory)
+  ansible.builtin.template:
+    src: victoriametrics-scrape.yml.j2
+    dest: "{{ app_base_dir }}/observability/victoriametrics-scrape.yml"
+    mode: '0644'
+  tags: [observability, monitoring, stack, observability_stack, victoriametrics, grafana, observability_assets]
+
+- name: Create Loki config
+  ansible.builtin.copy:
+    dest: "{{ app_base_dir }}/observability/loki-config.yml"
+    content: |
+      auth_enabled: false
+      server:
+        http_listen_port: 3100
+      common:
+        ring:
+          instance_addr: 127.0.0.1
+          kvstore:
+            store: inmemory
+        replication_factor: 1
+        path_prefix: /loki
+      schema_config:
+        configs:
+          - from: 2020-10-24
+            store: tsdb
+            object_store: filesystem
+            schema: v13
+            index:
+              prefix: index_
+              period: 24h
+      storage_config:
+        filesystem:
+          directory: /loki/chunks
+    mode: '0644'
+  tags: [observability, monitoring, stack, observability_stack, loki, observability_assets]
+
+- name: Create Grafana datasource config
+  ansible.builtin.copy:
+    dest: "{{ app_base_dir }}/observability/grafana-datasource.yml"
+    content: |
+      apiVersion: 1
+      datasources:
+        - name: VictoriaMetrics
+          type: prometheus
+          url: http://victoria-metrics:8428
+          access: proxy
+          isDefault: true
+        - name: Loki
+          type: loki
+          url: http://loki:3100
+          access: proxy
+    mode: '0644'
+  tags: [observability, monitoring, stack, observability_stack, grafana, observability_assets]
+
+- name: Render observability stack compose from template
+  ansible.builtin.template:
+    src: observability-stack-docker-compose.yml.j2
+    dest: "{{ app_base_dir }}/observability/docker-compose.yml"
+    mode: '0644'
+  tags: [observability, monitoring, stack, observability_stack, victoriametrics, loki, grafana, observability_assets]
+
+- name: Render observability live env file
+  ansible.builtin.template:
+    src: observability-stack.env.j2
+    dest: "{{ app_base_dir }}/observability/.env"
+    mode: '0600'
+  tags: [observability, monitoring, stack, observability_stack, victoriametrics, loki, grafana, observability_assets]
+
+- name: Render observability .env example
+  ansible.builtin.template:
+    src: observability-stack.env.example.j2
+    dest: "{{ app_base_dir }}/observability/.env.example"
+    mode: '0644'
+  tags: [observability, monitoring, stack, observability_stack, victoriametrics, loki, grafana, observability_assets]
+
+- name: Deploy observability stack
+  community.docker.docker_compose_v2:
+    project_src: "{{ app_base_dir }}/observability"
+    files:
+      - docker-compose.yml
+    env_files:
+      - .env
+    state: present
+    pull: "{{ observability_compose_pull_policy }}"
+    recreate: "{{ observability_compose_recreate_policy }}"
+    remove_orphans: true
+    wait: true
+    wait_timeout: "{{ observability_compose_wait_timeout }}"
+  register: observability_stack_compose_result
+  when: >-
+    'all' in ansible_run_tags or
+    'observability' in ansible_run_tags or
+    'monitoring' in ansible_run_tags or
+    'stack' in ansible_run_tags or
+    'observability_stack' in ansible_run_tags
+  tags: [observability, monitoring, stack, observability_stack]
+
+- name: Deploy VictoriaMetrics service only
+  community.docker.docker_compose_v2:
+    project_src: "{{ app_base_dir }}/observability"
+    files:
+      - docker-compose.yml
+    env_files:
+      - .env
+    services:
+      - victoria-metrics
+    state: present
+    pull: "{{ observability_compose_pull_policy }}"
+    recreate: "{{ observability_compose_recreate_policy }}"
+    wait: true
+    wait_timeout: "{{ observability_compose_wait_timeout }}"
+  register: observability_victoriametrics_compose_result
+  when: >-
+    'victoriametrics' in ansible_run_tags and
+    'all' not in ansible_run_tags and
+    'observability' not in ansible_run_tags and
+    'monitoring' not in ansible_run_tags and
+    'stack' not in ansible_run_tags and
+    'observability_stack' not in ansible_run_tags
+  tags: [victoriametrics]
+
+- name: Deploy Loki service only
+  community.docker.docker_compose_v2:
+    project_src: "{{ app_base_dir }}/observability"
+    files:
+      - docker-compose.yml
+    env_files:
+      - .env
+    services:
+      - loki
+    state: present
+    pull: "{{ observability_compose_pull_policy }}"
+    recreate: "{{ observability_compose_recreate_policy }}"
+    wait: true
+    wait_timeout: "{{ observability_compose_wait_timeout }}"
+  register: observability_loki_compose_result
+  when: >-
+    'loki' in ansible_run_tags and
+    'all' not in ansible_run_tags and
+    'observability' not in ansible_run_tags and
+    'monitoring' not in ansible_run_tags and
+    'stack' not in ansible_run_tags and
+    'observability_stack' not in ansible_run_tags
+  tags: [loki]
+
+- name: Deploy Grafana service only
+  community.docker.docker_compose_v2:
+    project_src: "{{ app_base_dir }}/observability"
+    files:
+      - docker-compose.yml
+    env_files:
+      - .env
+    services:
+      - grafana
+    state: present
+    pull: "{{ observability_compose_pull_policy }}"
+    recreate: "{{ observability_compose_recreate_policy }}"
+    wait: true
+    wait_timeout: "{{ observability_compose_wait_timeout }}"
+  register: observability_grafana_compose_result
+  when: >-
+    'grafana' in ansible_run_tags and
+    'all' not in ansible_run_tags and
+    'observability' not in ansible_run_tags and
+    'monitoring' not in ansible_run_tags and
+    'stack' not in ansible_run_tags and
+    'observability_stack' not in ansible_run_tags
+  tags: [grafana]
+
+- name: Display observability stack preparation summary
+  ansible.builtin.debug:
+    msg:
+      - "Observability stack deployed on {{ inventory_hostname }}"
+      - "Compose: {{ app_base_dir }}/observability/docker-compose.yml"
+      - "Env file: {{ app_base_dir }}/observability/.env"
+      - "Env example: {{ app_base_dir }}/observability/.env.example"
+      - "Changed: {{ observability_stack_compose_result.changed }}"
+  when: observability_stack_compose_result is defined
+  tags: [observability, monitoring, stack, observability_stack]
+
+- name: Display VictoriaMetrics deployment summary
+  ansible.builtin.debug:
+    msg:
+      - "VictoriaMetrics deployed on {{ inventory_hostname }}"
+      - "Compose: {{ app_base_dir }}/observability/docker-compose.yml"
+      - "Changed: {{ observability_victoriametrics_compose_result.changed }}"
+  when: observability_victoriametrics_compose_result is defined
+  tags: [victoriametrics]
+
+- name: Display Loki deployment summary
+  ansible.builtin.debug:
+    msg:
+      - "Loki deployed on {{ inventory_hostname }}"
+      - "Compose: {{ app_base_dir }}/observability/docker-compose.yml"
+      - "Changed: {{ observability_loki_compose_result.changed }}"
+  when: observability_loki_compose_result is defined
+  tags: [loki]
+
+- name: Display Grafana deployment summary
+  ansible.builtin.debug:
+    msg:
+      - "Grafana deployed on {{ inventory_hostname }}"
+      - "Compose: {{ app_base_dir }}/observability/docker-compose.yml"
+      - "Changed: {{ observability_grafana_compose_result.changed }}"
+  when: observability_grafana_compose_result is defined
+  tags: [grafana]
+

@@ -32,6 +32,23 @@
     mode: '0640'
   tags: [compliance, audit]
 
+- name: AU-12 | Collect AuditD evidence for Caddy-related events
+  ansible.builtin.shell: |
+    set -o pipefail
+    ausearch -k caddy_config_change -k caddy_stack_change -k caddy_log_tampering --start today 2>/dev/null || true
+  args:
+    executable: /bin/bash
+  register: caddy_audit_evidence
+  changed_when: false
+  tags: [compliance, audit, nist, au-12]
+
+- name: AU-12 | Save Caddy AuditD evidence for compliance review
+  ansible.builtin.copy:
+    dest: "/var/log/lynis/caddy-audit-evidence-{{ ansible_date_time.date }}.log"
+    content: "{{ caddy_audit_evidence.stdout | default('No Caddy audit events found for today.') }}"
+    mode: '0640'
+  tags: [compliance, audit, nist, au-12]
+
 - name: Extract Lynis warnings and suggestions
   ansible.builtin.shell: |
     echo "=== LYNIS SECURITY AUDIT SUMMARY ==="
@@ -46,6 +63,7 @@
       - "✅ Compliance Audit Completed (NIST Controls)"
       - "   Tool: Lynis"
       - "   Report: /var/log/lynis/audit-{{ ansible_date_time.date }}.log"
+      - "   AuditD evidence: /var/log/lynis/caddy-audit-evidence-{{ ansible_date_time.date }}.log"
       - "   Summary:"
       - "{{ lynis_summary.stdout_lines | map('regex_replace', '^', '     • ') | join('\n') }}"
   tags: [compliance, audit]

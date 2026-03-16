@@ -332,35 +332,82 @@
 # ------------------------------------------------------------------------------
 # CRITICAL: Add rules BEFORE enabling UFW to prevent lockout
 
-- name: Allow SSH Public (Brain Only - Rate Limited) - EMERGENCY ACCESS
-  community.general.ufw:
-    rule: limit
-    port: '22'
-    proto: tcp
-    comment: "Rate limited SSH for Management Node (Emergency Access)"
-  when: cloud_provider == 'hetzner'
+- name: Check persisted UFW enable state
+  ansible.builtin.command: grep '^ENABLED=' /etc/ufw/ufw.conf
+  register: ufw_enabled_config
+  changed_when: false
+  failed_when: false
+  tags: [nist, sc-7]
+
+- name: Check runtime UFW status
+  ansible.builtin.command: ufw status
+  register: ufw_runtime_status
+  changed_when: false
+  failed_when: false
+  tags: [nist, sc-7]
+
+- name: Recover inconsistent UFW state before rule management
+  ansible.builtin.command: ufw --force enable
+  when:
+    - ufw_enabled_config.stdout is defined
+    - "'ENABLED=yes' in ufw_enabled_config.stdout"
+    - ufw_runtime_status.stdout is defined
+    - "'Status: inactive' in ufw_runtime_status.stdout"
+  changed_when: true
   tags: [nist, sc-7]
 
 - name: Allow SSH Public TEMPORARY (During Bootstrap - Until Tailscale configured)
   community.general.ufw:
+    rule: limit
+    port: '22'
+    proto: tcp
+  when: not ansible_host.startswith('100.')
+  tags: [nist, sc-7]
+
+- name: Allow SSH Public TEMPORARY for legacy bootstrap compatibility
+  community.general.ufw:
     rule: allow
     port: '22'
     proto: tcp
-    comment: "TEMPORARY Bootstrap SSH - Remove after getting Tailscale IP"
-  when:
-    - cloud_provider == 'oci'
-    - not ansible_host.startswith('100.')  # Only during bootstrap (not using Tailscale)
+  when: not ansible_host.startswith('100.')
   tags: [nist, sc-7]
 
-- name: Allow HTTP/HTTPS (Public Access - All servers)
+- name: SC-7 | Allow Caddy HTTP (TCP/80) on ingress nodes only
   community.general.ufw:
     rule: allow
-    port: "{{ item }}"
+    port: '80'
     proto: tcp
-    comment: "Web Traffic (HTTP/HTTPS)"
-  loop:
-    - '80'
-    - '443'
+  when: inventory_hostname in groups.get('brain', [])
+  tags: [nist, sc-7]
+
+- name: SC-7 | Allow Caddy HTTPS (TCP/443) on ingress nodes only
+  community.general.ufw:
+    rule: allow
+    port: '443'
+    proto: tcp
+  when: inventory_hostname in groups.get('brain', [])
+  tags: [nist, sc-7]
+
+- name: SC-7 | Allow Caddy HTTP/3 (UDP/443) on ingress nodes only
+  community.general.ufw:
+    rule: allow
+    port: '443'
+    proto: udp
+  when: inventory_hostname in groups.get('brain', [])
+  tags: [nist, sc-7]
+
+- name: SC-7 | Explicitly deny Caddy admin API from network (TCP/2019)
+  community.general.ufw:
+    rule: deny
+    port: '2019'
+    proto: tcp
+  tags: [nist, sc-7]
+
+- name: SC-7 | Explicitly deny Caddy health endpoint from network (TCP/2020)
+  community.general.ufw:
+    rule: deny
+    port: '2020'
+    proto: tcp
   tags: [nist, sc-7]
 
 - name: Allow SSH via Tailscale VPN (All Nodes)
@@ -369,7 +416,6 @@
     port: '22'
     proto: tcp
     from_ip: "{{ tailscale_subnet }}"
-    comment: "SSH via Tailscale VPN Only"
   tags: [nist, sc-7]
 
 - name: Allow Tailscale mesh traffic (UDP 41641)
@@ -377,27 +423,32 @@
     rule: allow
     port: '41641'
     proto: udp
-    comment: "Tailscale WireGuard mesh"
   tags: [nist, sc-7]
 
 - name: Allow Docker internal networking (bridge mode)
   community.general.ufw:
     rule: allow
     src: 172.16.0.0/12
-    comment: "Docker bridge networks"
   tags: [nist, sc-7]
 
-- name: Remove temporary SSH public access (After Tailscale configured)
+- name: Remove temporary SSH public rate-limited access (After Tailscale configured)
+  community.general.ufw:
+    rule: limit
+    port: '22'
+    proto: tcp
+    delete: true
+  when: ansible_host.startswith('100.')
+  failed_when: false
+  tags: [nist, sc-7]
+
+- name: Remove temporary SSH public allow access (After Tailscale configured)
   community.general.ufw:
     rule: allow
     port: '22'
     proto: tcp
     delete: true
-    comment: "TEMPORARY Bootstrap SSH - Remove after getting Tailscale IP"
-  when:
-    - cloud_provider == 'oci'
-    - ansible_host.startswith('100.')  # Running via Tailscale IP now
-  failed_when: false  # Don't fail if rule doesn't exist
+  when: ansible_host.startswith('100.')
+  failed_when: false
   tags: [nist, sc-7]
 
 - name: Enable UFW firewall (after adding all rules)
@@ -446,16 +497,14 @@
     port: '9100'
     proto: tcp
     from_ip: "{{ tailscale_subnet }}"
-    comment: "Node Exporter via VPN"
   tags: [nist, sc-7]
 
 - name: Allow cAdvisor metrics via Tailscale
   community.general.ufw:
     rule: allow
-    port: '8080'
+    port: "{{ observability_cadvisor_port | string }}"
     proto: tcp
     from_ip: "{{ tailscale_subnet }}"
-    comment: "cAdvisor via VPN"
   tags: [nist, sc-7]
 # ------------------------------------------------------------------------------
 # 7. NIST CONTROLS IMPLEMENTATION
@@ -485,8 +534,7 @@
       - ""
       - "🛡️  Firewall Rules:"
       - "  - HTTP/HTTPS: Public (80, 443)"
-      - "  {% if cloud_provider == 'hetzner' %}- SSH: Rate limited public + Tailscale{% endif %}"
-      - "  {% if cloud_provider == 'oci' %}- SSH: Tailscale VPN ONLY (OCI iptables FLUSHED){% endif %}"
+      - "  {% if ansible_host.startswith('100.') %}- SSH: Tailscale VPN ONLY{% else %}- SSH: Temporary public bootstrap + Tailscale{% endif %}"
       - "  - Tailscale mesh: UDP 41641"
       - "  - Docker bridge: 172.16.0.0/12"
       - ""
@@ -500,7 +548,7 @@
       - "{% if cloud_provider == 'oci' %}  - UFW now controls all filtering{% endif %}"
       - ""
       - "⚠️  IMPORTANT:"
-      - "  {% if cloud_provider == 'oci' %}- OCI SSH: Use Tailscale IP ({{ ansible_host }}) ONLY{% endif %}"
+      - "  {% if ansible_host.startswith('100.') %}- Public bootstrap SSH removed after switching inventory to Tailscale IPs{% else %}- Finish bootstrap, update inventory to Tailscale IPs, then rerun security to remove public SSH{% endif %}"
       - "  - Ansible connects via Tailscale mesh"
-      - "  - Public SSH blocked on Muscle nodes"
+      - "  - Public SSH is intended only for bootstrap and recovery windows"
       - "========================================="

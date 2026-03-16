@@ -30,13 +30,13 @@
 {% set _ = acl_rules.append({
       'action': 'accept',
       'src': ['tag:brain'],
-      'dst': ['tag:muscle:22', 'tag:muscle:9100', 'tag:muscle:8080', 'tag:muscle:' ~ (tailscale_metrics_port | string)]
+      'dst': ['tag:muscle:22', 'tag:muscle:9100', 'tag:muscle:' ~ (observability_cadvisor_port | string), 'tag:muscle:' ~ (tailscale_metrics_port | string)]
     })
 %}
 {% set _ = acl_rules.append({
       'action': 'accept',
       'src': ['tag:muscle'],
-  'dst': ['tag:brain:8000', 'tag:brain:9443', 'tag:brain:9100', 'tag:brain:8080', 'tag:brain:' ~ (tailscale_metrics_port | string)]
+  'dst': ['tag:brain:8000', 'tag:brain:9443', 'tag:brain:9100', 'tag:brain:' ~ (observability_cadvisor_port | string), 'tag:brain:' ~ (tailscale_metrics_port | string)]
     })
 %}
 {

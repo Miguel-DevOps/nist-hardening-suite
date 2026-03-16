@@ -12,25 +12,46 @@
 # ------------------------------------------------------------------------------
 # 0. USUARIO DE SERVICIO DEDICADO (AC-2 | NIST 800-53)
 # ------------------------------------------------------------------------------
+- name: Preflight | Assert Caddy UID/GID are aligned with caddy-waf image
+  ansible.builtin.assert:
+    that:
+      - caddy_user_uid | int == 1337
+      - caddy_user_gid | int == 1337
+    fail_msg: >-
+      caddy_user_uid/caddy_user_gid must be 1337:1337 for the pinned caddy-waf image.
+      Update group_vars/all/images.yml before deploy.
+    success_msg: "Caddy UID/GID preflight is aligned to 1337:1337."
+  tags: [nist, ac-2]
+
+- name: Preflight | Assert ingress compose policies are valid
+  ansible.builtin.assert:
+    that:
+      - ingress_compose_pull_policy in ['always', 'missing', 'never', 'policy']
+      - ingress_compose_recreate_policy in ['always', 'never', 'auto']
+      - ingress_compose_wait_timeout | int > 0
+    fail_msg: >-
+      Invalid ingress compose policy configuration. Expected:
+      ingress_compose_pull_policy in [always, missing, never, policy],
+      ingress_compose_recreate_policy in [always, never, auto],
+      ingress_compose_wait_timeout > 0.
+    success_msg: "Ingress compose policy preflight is valid."
+
 - name: AC-2 | Ensure dedicated caddy system user exists (no shell, no home)
+  ansible.builtin.group:
+    name: caddy
+    gid: "{{ caddy_user_gid | int }}"
+    system: false
+  tags: [nist, ac-2]
+
+- name: AC-2 | Ensure dedicated caddy user exists with pinned UID/GID (no shell, no home)
   ansible.builtin.user:
     name: caddy
-    system: true
+    uid: "{{ caddy_user_uid | int }}"
+    group: caddy
+    system: false
     create_home: false
     shell: /usr/sbin/nologin
     comment: "Caddy web server service account"
-  tags: [nist, ac-2]
-
-- name: AC-2 | Retrieve caddy system user info
-  ansible.builtin.getent:
-    database: passwd
-    key: caddy
-  tags: [nist, ac-2]
-
-- name: AC-2 | Set caddy UID/GID facts from system user (overrides images.yml defaults)
-  ansible.builtin.set_fact:
-    caddy_user_uid: "{{ ansible_facts.getent_passwd['caddy'][1] }}"
-    caddy_user_gid: "{{ ansible_facts.getent_passwd['caddy'][2] }}"
   tags: [nist, ac-2]
 
 # ------------------------------------------------------------------------------
@@ -56,6 +77,17 @@
     owner: root
     group: root
 
+- name: Ensure bind-mount parent directories are traversable for container runtime
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  loop:
+    - "{{ app_base_dir | dirname }}"
+    - "{{ app_base_dir }}"
+
 - name: Create Caddy data directories for persistent storage
   ansible.builtin.file:
     path: "{{ app_base_dir }}/ingress/{{ item }}"
@@ -68,22 +100,57 @@
     - 'caddy-config'
     - 'certs'
 
+# Detect userns-remap so bind-mount files are owned by the remapped UID.
+# With 'userns-remap: default', container UID X maps to host UID (subuid_base + X).
+# Owning the log dir/file as the REMAPPED UID lets the container process write to it.
+- name: AU-12/SI-4 | Detect Docker userns-remap to compute bind-mount ownership
+  ansible.builtin.command:
+    cmd: "docker info --format '{{ '{{' }}json .SecurityOptions{{ '}}' }}'"
+  register: _docker_security_opts
+  changed_when: false
+  failed_when: false
+  tags: [nist, au-12, si-4]
+
+- name: AU-12/SI-4 | Read dockremap subuid offset (only when userns-remap is active)
+  ansible.builtin.command:
+    cmd: "awk -F: '/^dockremap:/{print $2; exit}' /etc/subuid"
+  register: _dockremap_subuid_offset
+  changed_when: false
+  when: "'name=userns' in (_docker_security_opts.stdout | default(''))"
+  tags: [nist, au-12, si-4]
+
+- name: AU-12/SI-4 | Resolve effective host UID/GID for Caddy log bind-mount
+  ansible.builtin.set_fact:
+    _caddy_log_uid: "{{ (_dockremap_subuid_offset.stdout | default('0') | int) + (caddy_user_uid | int) }}"
+    _caddy_log_gid: "{{ (_dockremap_subuid_offset.stdout | default('0') | int) + (caddy_user_gid | int) }}"
+  tags: [nist, au-12, si-4]
+
 - name: AU-12/SI-4 | Create Caddy host log directory (for CrowdSec and AuditD)
   ansible.builtin.file:
     path: /var/log/caddy
     state: directory
     mode: '0750'
-    owner: "{{ caddy_user_uid }}"
-    group: "{{ caddy_user_gid }}"
+    owner: "{{ _caddy_log_uid }}"
+    group: "{{ _caddy_log_gid }}"
   tags: [nist, au-12, si-4]
 
-- name: Create Caddyfile for custom configurations
-  ansible.builtin.template:
-    src: Caddyfile.j2
-    dest: "{{ app_base_dir }}/ingress/Caddyfile"
+- name: AU-12/SI-4 | Normalize Caddy log directory ownership recursively
+  ansible.builtin.file:
+    path: /var/log/caddy
+    state: directory
+    owner: "{{ _caddy_log_uid }}"
+    group: "{{ _caddy_log_gid }}"
+    recurse: true
+  tags: [nist, au-12, si-4]
+
+- name: AU-12/SI-4 | Ensure Caddy access log file exists and is writable by Caddy user
+  ansible.builtin.file:
+    path: /var/log/caddy/access.log
+    state: touch
     mode: '0640'
-    owner: "{{ caddy_user_uid }}"
-    group: "{{ caddy_user_gid }}"
+    owner: "{{ _caddy_log_uid }}"
+    group: "{{ _caddy_log_gid }}"
+  tags: [nist, au-12, si-4]
 
 - name: Validate Caddyfile.j2 presence
   ansible.builtin.stat:
@@ -100,6 +167,43 @@
       Please copy roles/stack_ingress/templates/Caddyfile.example.j2 to Caddyfile.j2 and adjust it for your deployment.
   run_once: true
   when: not caddyfile_j2_stat.stat.exists
+
+- name: Create Caddyfile for custom configurations
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: "{{ app_base_dir }}/ingress/Caddyfile"
+    mode: '0644'
+    owner: "{{ caddy_user_uid }}"
+    group: "{{ caddy_user_gid }}"
+
+- name: Preflight | Gather Caddy bind-mount path metadata
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ app_base_dir | dirname }}"
+    - "{{ app_base_dir }}"
+    - "{{ app_base_dir }}/ingress"
+    - "{{ app_base_dir }}/ingress/Caddyfile"
+  register: caddy_bind_mount_stats
+
+- name: Preflight | Assert bind-mount paths are world-traversable/readable
+  ansible.builtin.assert:
+    that:
+      - caddy_bind_mount_stats.results[0].stat.exists
+      - caddy_bind_mount_stats.results[1].stat.exists
+      - caddy_bind_mount_stats.results[2].stat.exists
+      - caddy_bind_mount_stats.results[3].stat.exists
+      - (caddy_bind_mount_stats.results[0].stat.mode | default('0000'))[-1] in ['1', '3', '5', '7']
+      - (caddy_bind_mount_stats.results[1].stat.mode | default('0000'))[-1] in ['1', '3', '5', '7']
+      - (caddy_bind_mount_stats.results[2].stat.mode | default('0000'))[-1] in ['1', '3', '5', '7']
+      - (caddy_bind_mount_stats.results[3].stat.mode | default('0000'))[-1] in ['4', '5', '6', '7']
+    fail_msg: >-
+      Caddy bind-mount path permissions are incompatible with container runtime access.
+      Ensure {{ app_base_dir | dirname }}, {{ app_base_dir }}, and
+      {{ app_base_dir }}/ingress are executable by others,
+      and {{ app_base_dir }}/ingress/Caddyfile is readable by others.
+      This is required in environments with Docker user namespace remapping.
+    success_msg: "Caddy bind-mount permissions are compatible with runtime access."
 
 - name: Ensure public_net Docker network exists
   community.docker.docker_network:
@@ -147,34 +251,82 @@
 # 4. DESPLEGAR CON DOCKER COMPOSE V2
 # ------------------------------------------------------------------------------
 - name: Deploy Caddy Ingress Stack with Docker Compose
-  community.docker.docker_compose_v2:
-    project_src: "{{ app_base_dir }}/ingress"
-    state: present
-    pull: always
-    recreate: always
-  register: stack_deploy
+  block:
+    - name: Run docker compose up
+      community.docker.docker_compose_v2:
+        project_src: "{{ app_base_dir }}/ingress"
+        state: present
+        pull: "{{ ingress_compose_pull_policy }}"
+        recreate: "{{ ingress_compose_recreate_policy }}"
+        wait: true
+        wait_timeout: "{{ ingress_compose_wait_timeout | int }}"
+      register: stack_deploy
+  rescue:
+    - name: Capture Caddy container startup logs
+      ansible.builtin.command:
+        cmd: docker logs --tail 100 caddy-waf
+      register: caddy_crash_logs
+      changed_when: false
+      failed_when: false
 
-- name: Wait for Caddy service to be ready
-  ansible.builtin.pause:
-    seconds: 15
-  when: stack_deploy.changed
+    - name: Show Caddy startup logs for diagnosis
+      ansible.builtin.debug:
+        msg: |
+          === caddy-waf STDOUT ===
+          {{ caddy_crash_logs.stdout | default('(empty)') }}
+          === caddy-waf STDERR ===
+          {{ caddy_crash_logs.stderr | default('(empty)') }}
+
+    - name: Fail with deployment context
+      ansible.builtin.fail:
+        msg: >-
+          Caddy stack deployment failed — see 'Show Caddy startup logs for diagnosis'
+          above for the root cause.
 
 # ------------------------------------------------------------------------------
 # 4. VALIDAR DESPLIEGUE
 # ------------------------------------------------------------------------------
-- name: Verify Caddy container is running
-  ansible.builtin.command: docker ps --filter name=caddy --format '{{ '{{' }}.Names{{ '}}' }} {{ '{{' }}.Status{{ '}}' }}'
-  register: caddy_status
+- name: Get Caddy container info
+  community.docker.docker_container_info:
+    name: caddy-waf
+  register: caddy_container_info
+
+- name: Assert Caddy container is running
+  ansible.builtin.assert:
+    that:
+      - caddy_container_info.exists | default(false)
+      - caddy_container_info.container.State.Status == 'running'
+    fail_msg: >-
+      Caddy container is not running. Current state:
+      {{ caddy_container_info.container.State.Status | default('missing') }}.
+
+- name: Assert runtime user is pinned to expected UID/GID
+  ansible.builtin.assert:
+    that:
+      - caddy_container_info.container.Config.User == (caddy_user_uid | string ~ ':' ~ caddy_user_gid | string)
+    fail_msg: >-
+      Caddy runtime user mismatch. Expected {{ caddy_user_uid }}:{{ caddy_user_gid }},
+      got {{ caddy_container_info.container.Config.User | default('unset') }}.
+
+- name: Validate active Caddyfile inside container
+  community.docker.docker_container_exec:
+    container: caddy-waf
+    command: "caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile"
+  register: caddy_validate
   changed_when: false
 
-- name: Check Caddy health endpoint
-  ansible.builtin.uri:
-    url: "http://localhost:2020/health"
-    method: GET
-    status_code: 200
-  retries: 3
+- name: Wait until Docker reports Caddy container as healthy
+  community.docker.docker_container_info:
+    name: caddy-waf
+  register: caddy_health
+  changed_when: false
+  retries: 12
   delay: 5
-  failed_when: false
+  until:
+    - caddy_health.exists | default(false)
+    - caddy_health.container.State.Status == 'running'
+    - caddy_health.container.State.Health is defined
+    - caddy_health.container.State.Health.Status == 'healthy'
 
 # ------------------------------------------------------------------------------
 # 5. SUMMARY
@@ -190,14 +342,16 @@
       - "🔧 Image: {{ caddy_image }}"
       - "🔒 WAF: Enabled (Rate Limiting + ModSecurity rules)"
       - ""
-      - "📡 Exposed Ports (Bridge Network):"
+      - "📡 Published Ports (Bridge Network):"
       - "  - 80/tcp  → HTTP"
       - "  - 443/tcp → HTTPS (Auto TLS)"
-      - "  - 2020    → Health Check"
+      - "  - 443/udp → HTTP/3"
+      - "  - 2020    → Health Check (localhost-only check, not published)"
       - ""
       - "🔗 Configured Domains:"
       - "  - example-domain.com → app-backend:8000"
       - "  - portainer.example.com → portainer:9000 (VPN-only)"
       - ""
-      - "🏷️  Container Status: {{ caddy_status.stdout }}"
+      - "🏷️  Container Status: {{ caddy_container_info.container.State.Status | default('unknown') }}"
+      - "👤 Runtime User: {{ caddy_container_info.container.Config.User | default('unset') }}"
       - "========================================="
