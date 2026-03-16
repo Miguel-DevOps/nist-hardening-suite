@@ -1,5 +1,88 @@
 # Changelog
 
+## [4.1.0] - 2026-03-15
+
+### Features
+- **Caddyfile integration mode examples**: `Caddyfile.example.j2` ships three
+  annotated Uptime Kuma integration modes: VPN-only (Zero Trust recommended),
+  global open (anti-pattern, explicitly labeled), and global with WAF
+  (secure public exposure). WAF `SecRuleEngine` switched to `DetectionOnly`
+  with structured audit logging in the example.
+
+### Documentation
+- **ROADMAP updated**: Added backlog item to rename `tailscale_subnet` to a
+  VPN-agnostic overlay variable (e.g. `management_overlay_subnet`) for
+  multi-VPN and Headscale compatibility.
+
+## [4.0.0] - 2026-03-15
+
+### Breaking Changes
+- **Observability stack scope reduced**: `monitoring.yml` observability stack now
+  deploys only VictoriaMetrics + Loki + Grafana. Uptime Kuma is no longer
+  deployed by the `observability` role.
+- **Operational transport policy hardened**: `stacks.yml`, `monitoring.yml`, and
+  `nuke.yml` now require `ansible_host` to be inside `tailscale_subnet`
+  (default `100.64.0.0/10`) before remote execution. Public-IP operations in
+  these playbooks now fail at preflight; only `site.yml` retains bootstrap over
+  public IP by design.
+
+### Fixes
+- **nuke.yml transport bug**: Removed the `pre_task` that silently overrode
+  `ansible_host` with `public_ip` before teardown, causing nuke operations to
+  attempt connection via public IPs and violating Zero Trust expectations.
+- **nuke.yml clarity and safety copy**: Replaced legacy branding/messages with
+  structured NIST-aligned header, risk notes, and role-aligned usage examples.
+
+### Features
+- **Recommended app catalog introduced**: added `recommended_apps/uptime-kuma/`
+  with a secure, Caddy-oriented compose and `.env.example` for optional,
+  plug-and-play deployment.
+- **Overlay subnet as source of truth**: `tailscale_subnet` in
+  `group_vars/all/main.yml` is now the canonical variable for management
+  overlay validation checks across operational playbooks.
+
+### Documentation
+- Added `APP_RECOMMENDED_GUIDE.md` to define standards for optional applications
+  (Caddy-first exposure, Zero Trust defaults, and Portainer-friendly operations).
+
+## [3.1.0] - 2026-03-14
+
+### Security
+- **Ingress runtime hardening**: Caddy ingress compose now enforces
+  `read_only: true` and a restricted `/tmp` tmpfs mount (`noexec,nosuid,nodev`)
+  to reduce writable surface.
+- **Runtime validation gates**: Ingress deployment now validates runtime
+  container user and validates active Caddy config before final success output.
+
+### Features
+- **Operator-managed policy flow preserved**: WAF mode and per-application
+  routing remain defined directly in `Caddyfile.j2`/`Caddyfile.example.j2` for
+  explicit Zero Trust control.
+- **Ansible-native ingress checks**: Replaced direct Docker CLI command tasks
+  in ingress validation with `community.docker` modules where possible.
+- **Exporter hardening profile updated**: Node Exporter and cAdvisor example
+  stacks now run in bridge mode with read-only host mounts, removing
+  `network_mode: host`/`pid: host` from exporter examples.
+- **Observability template consolidation**: Exporters now use a single role
+  template rendered for both brain and muscle nodes, and the observability
+  stack compose is generated from dedicated role templates.
+
+### Documentation
+- **Observability security posture clarified**: README now states bridge-mode
+  exporter policy and defers host-mode advanced metrics to a future,
+  controlled exception path.
+
+### Operational Model
+- **Split preparation flow in monitoring playbook**: `monitoring.yml` now prepares exporter assets on all nodes with `enable_metrics_exporters: true` and prepares full stack assets only on brain nodes.
+- **Observability deployment automated end-to-end**: Exporters and the brain observability stack are now deployed by Ansible with `community.docker.docker_compose_v2`.
+- **Vault-backed runtime secrets**: Observability live `.env` is rendered from Ansible variables and secrets, replacing the prior manual Portainer-only environment entry flow.
+- **Per-tool observability deploy tags**: `monitoring.yml` now supports targeted deployment tags for `node_exporter`, `cadvisor`, `victoriametrics`, `loki`, `grafana`, `uptime_kuma`, plus grouped tags for `exporters`, `stack`, and `observability_stack`.
+
+### Cleanup
+- **Removed unused env vars**: Dropped `WAF_ENABLED` and `ACME_AGREE` from ingress compose template because they were not consumed by the Caddy runtime in this stack.
+- **Observability nuke cleanup hardened**: `nuke.yml` now always attempts to remove both observability networks to prevent stale network-name reuse across future redeployments; deletion remains non-fatal if a shared external network is still in use.
+- **Per-tool observability cleanup tags**: `nuke.yml` now supports targeted cleanup tags for `node_exporter`, `cadvisor`, `victoriametrics`, `loki`, `grafana`, `uptime_kuma`, plus grouped tags for `exporters`, `observability_stack`, and `observability_networks`.
+
 ## [3.0.1] - 2026-03-13
 
 ### Fixes

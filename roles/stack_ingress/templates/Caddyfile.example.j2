@@ -53,7 +53,12 @@
             Include /etc/caddy/coraza.conf
             Include /etc/caddy/owasp-crs/crs-setup.conf
             Include /etc/caddy/owasp-crs/rules/*.conf
-            SecRuleEngine On
+            SecRuleEngine DetectionOnly
+
+            SecAuditEngine RelevantOnly
+            SecAuditLog /dev/stdout
+            SecAuditLogFormat JSON
+            SecAuditLogParts ABCDEFGHIJKZ
         `
     }
 }
@@ -67,45 +72,72 @@
 }
 
 # -----------------------------------------------------------------------------
-# 1. Example Application (Backend Service)
+# OPTIONAL APP ANNEX EXAMPLE: UPTIME KUMA (uptime-kuma:3001 on public_net)
+# Use one mode per app domain according to your risk model.
 # -----------------------------------------------------------------------------
-example.com, www.example.com {
+
+# -----------------------------------------------------------------------------
+# 1) RECOMMENDED: VPN-ONLY (Zero Trust, private operations)
+# Access limited to Tailscale subnet.
+# -----------------------------------------------------------------------------
+vpn.example.com {
     import waf
-    import vpn_only  # Restrict to Tailscale VPN ({{ tailscale_subnet }})
+    import vpn_only
 
-    reverse_proxy backend-app:8000 {
+    reverse_proxy uptime-kuma:3001 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-For {remote_host}
+    }
+
+    tls {
+        protocols tls1.2 tls1.3
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
     }
 }
 
 # -----------------------------------------------------------------------------
-# 2. Application 1 (Another Backend)
+# 2) INSECURE EXAMPLE (ANTI-PATTERN): GLOBAL OPEN ACCESS
+# DO NOT USE IN PRODUCTION. Any source that can reach this host can reach app.
 # -----------------------------------------------------------------------------
-app1.example.com {
-    import vpn_only  # Restrict to Tailscale VPN ({{ tailscale_subnet }})
-
-    reverse_proxy app1-backend:8000 {
+unsafe.example.com {
+    reverse_proxy uptime-kuma:3001 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-Proto https
+        header_up X-Forwarded-Proto {scheme}
         header_up X-Forwarded-For {remote_host}
     }
-    
-    encode gzip
 }
 
 # -----------------------------------------------------------------------------
-# 3. Application 2 (Dashboard)
+# 3) GLOBAL BUT HARDENED: INTERNET ACCESS + WAF + TLS HARDENING
+# Use when public exposure is required and controls must stay enforced.
 # -----------------------------------------------------------------------------
-app2.example.com {
-    import vpn_only  # Restrict to Tailscale VPN ({{ tailscale_subnet }})
+secure.example.com {
+    import waf
 
-    reverse_proxy app2-backend:9000 {
+    reverse_proxy uptime-kuma:3001 {
         header_up Host {host}
         header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-Proto https
+        header_up X-Forwarded-Proto {scheme}
         header_up X-Forwarded-For {remote_host}
     }
 
+    tls {
+        protocols tls1.2 tls1.3
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
 }

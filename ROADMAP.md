@@ -15,11 +15,18 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 | `v1.3.1` | 2026-03-12 | tag on `c19f7c7` | Caddy security integration audit fixes across AC-2, AU-12, SI-4, SC-7, and configuration hygiene |
 | `v2.0.0` | 2026-03-13 | tag on `6416f11` | Breaking release: Tailscale ACL OAuth-only credentials and release governance alignment |
 | `v3.0.0` | 2026-03-13 | release tag on current `master` | Breaking release: Portainer Edge key-per-node migration, brain routing, and server hardening |
+| `v3.0.1` | 2026-03-13 | tag on `d88d649` | Hotfix: Portainer Edge resolved key variable in agent template |
+| `v3.1.0` | 2026-03-15 | (planned tag) | Observability template consolidation, Caddy WAF v2 pin, ingress runtime hardening, exporter bridge-mode hardening |
+| `v4.0.0` | 2026-03-15 | (planned tag) | Breaking: Uptime Kuma decoupled from observability role; transport policy enforces overlay-only operations in non-bootstrap playbooks |
+| `v4.1.0` | 2026-03-15 | (planned tag) | Caddyfile optional-app integration mode examples and roadmap alignment updates |
 
-### What Is Working Well in `v3.0.0`
+### What Is Working Well in Current Working Tree (Post-`v3.0.1`)
 - NIST-focused architecture remains consistent (`AC-2`, `CM-7`, `SC-7`, `SI-4`, `AU-12`, `SC-28` audit scope).
 - Security stack is cohesive: SSH hardening, UFW/fail2ban, CrowdSec, Tailscale, Vault workflow.
-- Recent releases improved runtime compatibility, Portainer/Tailscale hardening, observability reliability, Caddy security monitoring/auditability, and ACL policy safety checks.
+- Operational playbooks (`stacks.yml`, `monitoring.yml`, `nuke.yml`) enforce Tailscale-only transport via `tailscale_subnet` source-of-truth variable.
+- Observability deployment is fully automated end-to-end via Ansible and Vault-backed secrets; Uptime Kuma is decoupled as a recommended app.
+- Caddy WAF v2 is pinned, runtime-hardened, and ships annotated integration mode examples for optional app exposure patterns.
+- Recent releases improved runtime compatibility, Portainer/Tailscale hardening, observability reliability, Caddy security monitoring/auditability, ACL policy safety checks, and Zero Trust transport enforcement.
 - Tooling modernization is in place with `uv` and Python `3.14`.
 
 ### Improvement Focus (Without Overstating Risk)
@@ -93,6 +100,10 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 - Compliance reporting outputs (JSON/HTML/PDF).
 - Image provenance/signing pipeline.
 - Managed monitoring operation packs.
+- [ ] Support for advanced host metrics (`network_mode: host`) with dedicated segmentation, compensating controls, and NIST/CIS exception documentation.
+- [ ] Improve cAdvisor zero-trust coverage on hardened Docker hosts (`userns-remap`) with explicit metric-tier profiles (strict, balanced, full) and documented tradeoffs per profile.
+- [ ] Add optional per-node cAdvisor enablement in inventory/group vars so hardened nodes can run Node Exporter only while keeping centralized scrape configuration clean.
+- [ ] Rename `tailscale_subnet` to a VPN-agnostic overlay variable (e.g. `management_overlay_subnet`) to support non-Tailscale overlays (Headscale, WireGuard, etc.) without requiring changes across multiple playbooks. `tailscale_subnet` would remain as an alias for backwards compatibility. Relevant controls: NIST `CM-6`, `SC-7`.
 
 ## Success Criteria
 
@@ -113,4 +124,4 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 ---
 
 Maintained by Miguel Lozano - Site Reliability Engineer & FinOps Architect
-Last updated: 2026-03-13
+Last updated: 2026-03-15

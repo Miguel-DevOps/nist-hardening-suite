@@ -1,6 +1,6 @@
 # Release Procedure
 
-Current latest release in git: `v4.0.0`.
+Current latest release in git: `v4.1.0`.
 
 This document defines the standard process for all future releases.
 
