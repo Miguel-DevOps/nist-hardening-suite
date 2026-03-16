@@ -1,5 +1,26 @@
 # Changelog
 
+## [4.1.1] - 2026-03-16
+
+### Security
+- **Tag-gated security audit workflow**: GitHub Actions `Security Audit` now
+  runs only on version tags (`v*`) and manual dispatch, matching the release
+  process and avoiding non-release noise.
+- **Local/remote audit parity**: The release procedure now documents the exact
+  local commands required before tagging so the same security gates are executed
+  before remote publication.
+
+### Fixes
+- **detect-secrets baseline repaired**: Regenerated `.secrets.baseline` for
+  `detect-secrets 1.5.0` compatibility, restoring baseline validation in local
+  and CI audit flows.
+
+### Tooling
+- **Security workflow scope tightened**: `security-audit.yml` now focuses only
+  on security controls relevant to release gating: secrets baseline validation,
+  tracked-secrets guard, high-risk credential pattern scan, and dependency
+  vulnerability audit via `pip-audit`.
+
 ## [4.1.0] - 2026-03-15
 
 ### Features

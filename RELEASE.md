@@ -2,11 +2,46 @@
 
 Current latest release in git: `v4.1.0`.
 
+Planned next release: `v4.1.1` (`PATCH`)
+- Scope: security-audit workflow tightening, detect-secrets baseline repair,
+  and release-process parity between local and GitHub Actions.
+
 This document defines the standard process for all future releases.
 
 ## Automated Pre-Release Validation
 
 All releases must pass automated checks before publication:
+
+### Local Security Audit (Run Before Tagging)
+
+Run this exact block locally before creating and pushing a tag:
+
+```bash
+# 1. Sync local toolchain
+uv sync
+
+# 2. Validate detect-secrets baseline
+uv run detect-secrets scan --baseline .secrets.baseline > /dev/null
+
+# 3. Ensure encrypted runtime secrets are not tracked
+if git ls-files --error-unmatch group_vars/all/secrets.yml >/dev/null 2>&1; then
+	echo "ERROR: group_vars/all/secrets.yml is tracked in git"
+	exit 1
+fi
+
+# 4. Scan for high-risk hardcoded secret signatures
+if rg -n --hidden -g '!.git' -g '!**/.venv/**' \
+	-e 'ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|-----BEGIN (RSA|OPENSSH|EC|DSA) PRIVATE KEY-----|xox[baprs]-[A-Za-z0-9-]{10,}' ; then
+	echo "ERROR: Potential hardcoded secrets detected"
+	exit 1
+fi
+
+# 5. Dependency vulnerability scan
+uvx pip-audit -r requirements.txt
+```
+
+The GitHub `Security Audit` workflow now runs on tag pushes (`v*`) and `workflow_dispatch`.
+Keeping the same commands locally prevents most remote tag audit failures.
 
 ```bash
 # 1. Run full CI/CD pipeline
@@ -31,7 +66,7 @@ uv run ansible-playbook -i inventory/hosts.ini stacks.yml --check --ask-vault-pa
 uv run ansible-playbook -i inventory/hosts.ini stacks.yml --check --ask-vault-pass
 ```
 
-GitHub Actions will automatically validate all pull requests against these checks.
+GitHub Actions will automatically run the security audit on version tags.
 
 ## Manual Release Steps
 

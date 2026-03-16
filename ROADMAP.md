@@ -19,6 +19,7 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 | `v3.1.0` | 2026-03-15 | (planned tag) | Observability template consolidation, Caddy WAF v2 pin, ingress runtime hardening, exporter bridge-mode hardening |
 | `v4.0.0` | 2026-03-15 | (planned tag) | Breaking: Uptime Kuma decoupled from observability role; transport policy enforces overlay-only operations in non-bootstrap playbooks |
 | `v4.1.0` | 2026-03-15 | (planned tag) | Caddyfile optional-app integration mode examples and roadmap alignment updates |
+| `v4.1.1` | 2026-03-16 | (planned tag) | Patch: detect-secrets baseline repair and tag-driven security audit workflow parity |
 
 ### What Is Working Well in Current Working Tree (Post-`v3.0.1`)
 - NIST-focused architecture remains consistent (`AC-2`, `CM-7`, `SC-7`, `SI-4`, `AU-12`, `SC-28` audit scope).
