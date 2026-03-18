@@ -398,6 +398,61 @@ graph TD
 
 ---
 
+## 🌐 Extended Compliance Positioning (NIST / CIS / ENS / DORA / MITRE)
+
+To keep this README operational and concise, compliance documentation is split into:
+- **[COMPLIANCE.md](COMPLIANCE.md)** (executive compliance overview)
+- **[COMPLIANCE_MAPPINGS.md](COMPLIANCE_MAPPINGS.md)** (detailed control matrices)
+- **[REGULATORY_REFERENCES.md](REGULATORY_REFERENCES.md)** (authoritative reference registry)
+- **[AUDIT_EVIDENCE.md](AUDIT_EVIDENCE.md)** (evidence checklist and verification workflow)
+
+### Zero Trust Implementation (NIST SP 800-207)
+
+- Tailscale mesh + ACL automation enforce explicit access by identity and role (`brain` / `muscle`).
+- Portainer Edge Agent pull model reduces management-plane exposure by avoiding inbound management ports on managed nodes.
+- UFW default-deny + SSH hardening + auditd + CrowdSec support assume-breach and least-privilege operations.
+
+Reference:
+- [NIST SP 800-207](https://csrc.nist.gov/pubs/sp/800/207/final)
+
+### CIS Benchmark Level 1 Alignment (Ubuntu/Debian)
+
+| Suite Area | Implementation | CIS Domain (generic) |
+|-----------|----------------|----------------------|
+| SSH hardening | Password auth disabled, root login restricted | Secure configuration / access control |
+| Host firewall | UFW default-deny and explicit allow rules | Boundary protection |
+| Least functionality | Unused filesystem modules blacklisted | Kernel/filesystem hardening |
+| Monitoring and audit | auditd + CrowdSec | Logging, auditing, threat detection |
+
+Reference:
+- [CIS Benchmarks](https://www.cisecurity.org/cis-benchmarks)
+
+### EU Regulatory Context (ENS / SecNumCloud / DORA)
+
+- Multi-provider and bare-metal support (OCI + Hetzner) improves cloud-exit and sovereignty posture.
+- Standardized Ansible controls reduce provider lock-in and preserve a portable security baseline.
+- CrowdSec + VictoriaMetrics/Loki/Grafana strengthen operational resilience monitoring required by regulated sectors.
+
+References:
+- [ENS - CCN-CERT](https://www.ccn-cert.cni.es/)
+- [ENS - BOE](https://www.boe.es/)
+- [DORA - EUR-Lex](https://eur-lex.europa.eu/homepage.html)
+- [EIOPA](https://www.eiopa.europa.eu/)
+
+### MITRE ATT&CK Blue Team Mapping
+
+| Defensive Control | ATT&CK Tactic | ATT&CK Technique (example) |
+|-------------------|---------------|----------------------------|
+| fail2ban + CrowdSec | Credential Access | T1110 Brute Force |
+| UFW default-deny | Initial Access | T1190 Exploit Public-Facing Application |
+| Tailscale ACLs | Lateral Movement | T1021 Remote Services |
+| auditd event trails | Detection / Forensics support | T1059 Command and Scripting Interpreter (detection context) |
+
+Reference:
+- [MITRE ATT&CK](https://attack.mitre.org/)
+
+---
+
 ## 🛠️ Engineering Roadmap
 
 ### Phase 1 — Base Hardening ✅
@@ -511,6 +566,10 @@ Complete documentation for this project:
 | Document | Purpose |
 |----------|---------|
 | **[ARCHITECTURE.md](ARCHITECTURE.md)** | System design, component architecture, NIST control mapping, and technical decisions |
+| **[COMPLIANCE.md](COMPLIANCE.md)** | Executive multi-framework compliance overview grounded in implemented controls |
+| **[COMPLIANCE_MAPPINGS.md](COMPLIANCE_MAPPINGS.md)** | Detailed implementation mappings for NIST 800-53/800-207, CIS, ENS, DORA, and MITRE ATT&CK |
+| **[REGULATORY_REFERENCES.md](REGULATORY_REFERENCES.md)** | Official authority domains and citation policy for standards references |
+| **[AUDIT_EVIDENCE.md](AUDIT_EVIDENCE.md)** | Reproducible verification commands, lint gates, and audit evidence collection checklist |
 | **[ROADMAP.md](ROADMAP.md)** | Priority roadmap by urgency (U0/U1/U2), current strengths, and future implementations |
 | **[CHANGELOG.md](CHANGELOG.md)** | Version history and release notes (`v1.0.0` to `v3.0.0`) |
 | **[CONTRIBUTING.md](CONTRIBUTING.md)** | Contribution guidelines, development setup, and code quality standards |
