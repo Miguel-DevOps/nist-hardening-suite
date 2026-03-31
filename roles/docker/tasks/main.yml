@@ -1,3 +1,8 @@
+# ---
+# COMPLIANCE WARNING:
+# This role references sensitive paths, keys, and user/group settings required for Docker security.
+# Do NOT expose, override, or parametrize these values in group_vars/all. Manage secrets and critical settings in group_vars/all/secrets.yml or vault only.
+# ---
 ---
 # =============================================================================
 # DOCKER ENGINE INSTALLATION - Production Grade (Architecture Agnostic)

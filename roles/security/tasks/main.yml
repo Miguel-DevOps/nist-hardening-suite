@@ -1,3 +1,8 @@
+# ---
+# COMPLIANCE WARNING:
+# This role configures SSH, firewall, and log settings. Paths, authentication, and user/group directives are security-critical.
+# Do NOT expose, override, or parametrize these values in group_vars/all. Only manage via inventory or vault with compliance review.
+# ---
 ---
 # ==============================================================================
 # SECURITY ROLE - Firewall & Intrusion Prevention (Production Hardened)
