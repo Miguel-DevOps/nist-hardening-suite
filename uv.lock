@@ -389,13 +389,13 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ansible-core", specifier = ">=2.19.7" },
-    { name = "ansible-lint", specifier = ">=26.3.0" },
-    { name = "ansible-vault", specifier = ">=4.1.0" },
-    { name = "detect-secrets", specifier = ">=1.5.0" },
-    { name = "jinja2", specifier = ">=3.1.6" },
-    { name = "pyyaml", specifier = ">=6.0.3" },
-    { name = "yamllint", specifier = ">=1.38.0" },
+    { name = "ansible-core", specifier = "==2.20.3" },
+    { name = "ansible-lint", specifier = "==26.3.0" },
+    { name = "ansible-vault", specifier = "==4.1.0" },
+    { name = "detect-secrets", specifier = "==1.5.0" },
+    { name = "jinja2", specifier = "==3.1.6" },
+    { name = "pyyaml", specifier = "==6.0.3" },
+    { name = "yamllint", specifier = "==1.38.0" },
 ]
 
 [[package]]
