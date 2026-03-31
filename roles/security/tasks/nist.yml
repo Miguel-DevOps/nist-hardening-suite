@@ -85,17 +85,19 @@
     state: present
     reload: true
   loop:
-    - { name: net.ipv4.tcp_syncookies, value: '1' }
-    - { name: kernel.randomize_va_space, value: '2' }
-    - { name: net.ipv4.conf.all.rp_filter, value: '1' }
-    - { name: net.ipv4.conf.default.rp_filter, value: '1' }
-    - { name: net.ipv4.icmp_echo_ignore_broadcasts, value: '1' }
-    - { name: net.ipv4.icmp_ignore_bogus_error_responses, value: '1' }
-    - { name: net.ipv4.conf.all.accept_redirects, value: '0' }
-    - { name: net.ipv6.conf.all.accept_redirects, value: '0' }
-    - { name: net.ipv4.conf.all.send_redirects, value: '0' }
-    - { name: net.ipv4.conf.all.accept_source_route, value: '0' }
-    - { name: net.ipv6.conf.all.accept_source_route, value: '0' }
+    - { name: net.ipv4.tcp_syncookies, value: "{{ net_ipv4_tcp_syncookies }}" }
+    - { name: kernel.randomize_va_space, value: "{{ kernel_randomize_va_space }}" }
+    - { name: net.ipv4.conf.all.rp_filter, value: "{{ net_ipv4_conf_all_rp_filter }}" }
+    - { name: net.ipv4.conf.default.rp_filter, value: "{{ net_ipv4_conf_default_rp_filter }}" }
+    - { name: net.ipv4.icmp_echo_ignore_broadcasts, value: "{{ net_ipv4_icmp_echo_ignore_broadcasts }}" }
+    - { name: net.ipv4.icmp_ignore_bogus_error_responses, value: "{{ net_ipv4_icmp_ignore_bogus_error_responses }}" }
+    - { name: net.ipv4.conf.all.accept_redirects, value: "{{ net_ipv4_conf_all_accept_redirects }}" }
+    - { name: net.ipv6.conf.all.accept_redirects, value: "{{ net_ipv6_conf_all_accept_redirects }}" }
+    - { name: net.ipv4.conf.all.send_redirects, value: "{{ net_ipv4_conf_all_send_redirects }}" }
+    - { name: net.ipv4.conf.all.accept_source_route, value: "{{ net_ipv4_conf_all_accept_source_route }}" }
+    - { name: net.ipv6.conf.all.accept_source_route, value: "{{ net_ipv6_conf_all_accept_source_route }}" }
+    - { name: net.core.rmem_max, value: "{{ net_core_rmem_max }}" }
+    - { name: net.core.rmem_default, value: "{{ net_core_rmem_default }}" }
   tags: [nist, cm-7]
 
 # ------------------------------------------------------------------------------
@@ -124,7 +126,7 @@
       -w /etc/ssh/sshd_config -p wa -k ssh_config_change
       -w /etc/ufw -p wa -k firewall_config
       -w /etc/docker -p wa -k docker_config
-    mode: '0640'
+    mode: "{{ auditd_rules_file_mode }}"
   notify: Restart auditd
   tags: [nist, si-4, au-12]
 

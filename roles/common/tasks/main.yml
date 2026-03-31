@@ -1,3 +1,8 @@
+# ---
+# COMPLIANCE WARNING:
+# The following system paths are hardcoded as required by compliance and operational standards.
+# Do NOT parametrize or expose these values unless a compliance review is performed.
+# ---
 ---
 # ==============================================================================
 # COMMON ROLE - Base System Configuration
@@ -42,7 +47,7 @@
     path: /etc/environment
     line: 'TZ=Etc/UTC'
     create: true
-    mode: '0644'
+    mode: "{{ file_mode_default }}"
     state: present
 
 - name: Check if swap is currently active
@@ -78,10 +83,10 @@
     limit_item: "{{ item.item }}"
     value: "{{ item.value }}"
   loop:
-    - { type: 'soft', item: 'nofile', value: '65536' }
-    - { type: 'hard', item: 'nofile', value: '65536' }
-    - { type: 'soft', item: 'nproc', value: '65536' }
-    - { type: 'hard', item: 'nproc', value: '65536' }
+    - { type: 'soft', item: 'nofile', value: "{{ systemd_nofile_soft }}" }
+    - { type: 'hard', item: 'nofile', value: "{{ systemd_nofile_hard }}" }
+    - { type: 'soft', item: 'nproc', value: "{{ systemd_nproc_soft }}" }
+    - { type: 'hard', item: 'nproc', value: "{{ systemd_nproc_hard }}" }
 
 - name: Enable automatic security updates
   ansible.builtin.apt:
@@ -100,7 +105,7 @@
       Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
       Unattended-Upgrade::Remove-Unused-Dependencies "true";
       Unattended-Upgrade::Automatic-Reboot "false";
-    mode: '0644'
+    mode: "{{ file_mode_default }}"
 
 - name: Set hostname based on inventory name
   ansible.builtin.hostname:

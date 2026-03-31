@@ -1,3 +1,8 @@
+# ---
+# COMPLIANCE WARNING:
+# This role manages sensitive API credentials, log paths, and firewall settings for CrowdSec.
+# Do NOT expose, override, or parametrize these values in group_vars/all. Manage secrets and critical settings in group_vars/all/secrets.yml or vault only.
+# ---
 ---
 # ==============================================================================
 # CROWDSEC ROLE - Collaborative Intrusion Prevention System (NIST SI-4)
@@ -28,14 +33,14 @@
   ansible.builtin.file:
     path: /etc/apt/keyrings
     state: directory
-    mode: '0755'
+    mode: "{{ dir_mode_default }}"
   tags: [crowdsec, nist, si-4]
 
 - name: SI-4 | Add CrowdSec GPG key (modern signed-by method)
   ansible.builtin.get_url:
     url: https://packagecloud.io/crowdsec/crowdsec/gpgkey
     dest: /etc/apt/keyrings/crowdsec.asc
-    mode: '0644'
+    mode: "{{ file_mode_default }}"
   retries: 3
   delay: 5
   tags: [crowdsec, nist, si-4]

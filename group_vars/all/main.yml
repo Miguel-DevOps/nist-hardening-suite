@@ -25,8 +25,49 @@ ufw_enable_ipv6: true
 # Control persistent Tailscale webclient exposure (:5252).
 tailscale_enable_webclient: false
 
-# Ingress deployment defaults (enterprise-safe and idempotent by default).
-# Override per environment when you need forced refresh during controlled rollouts.
-ingress_compose_pull_policy: "missing"   # valid: always, missing, never, policy
-ingress_compose_recreate_policy: "auto"  # valid: always, never, auto
+# Ingress deployment defaults (safe for all hosts)
+ingress_compose_pull_policy: "missing"
+ingress_compose_recreate_policy: "auto"
 ingress_compose_wait_timeout: 120
+
+# UDP buffer sizes for QUIC/HTTP3 (Caddy, Tailscale, etc.)
+net_core_rmem_max: 25000000
+net_core_rmem_default: 25000000
+
+# Kernel/network sysctl hardening (global, non-sensitive)
+net_ipv4_tcp_syncookies: 1
+kernel_randomize_va_space: 2
+net_ipv4_conf_all_rp_filter: 1
+net_ipv4_conf_default_rp_filter: 1
+net_ipv4_icmp_echo_ignore_broadcasts: 1
+net_ipv4_icmp_ignore_bogus_error_responses: 1
+net_ipv4_conf_all_accept_redirects: 0
+net_ipv6_conf_all_accept_redirects: 0
+net_ipv4_conf_all_send_redirects: 0
+net_ipv4_conf_all_accept_source_route: 0
+net_ipv6_conf_all_accept_source_route: 0
+
+# Auditd rules file mode (safe)
+auditd_rules_file_mode: '0640'
+
+# =====================
+# File/Directory Modes (safe to expose)
+file_mode_default: '0644'  # Used for most config files
+app_data_dir_mode: '0755'  # Used for persistent data directories
+# Default mode for directories (used in roles like crowdsec)
+dir_mode_default: '0755'
+# Default mode for sensitive files (e.g., secrets, audit logs)
+file_mode_sensitive: '0600'
+file_mode_exec: '0755'
+
+# =====================
+# Service/User/Group IDs (safe to expose)
+container_user_nobody: '65534'
+container_group_nogroup: '65534'
+
+# =====================
+# Resource Limits (safe to expose)
+systemd_nofile_soft: 65536
+systemd_nofile_hard: 65536
+systemd_nproc_soft: 65536
+systemd_nproc_hard: 65536
