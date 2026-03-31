@@ -1,10 +1,9 @@
 # Release Procedure
 
-Current latest release in git: `v4.1.0`.
+Current latest release in git: `v4.2.0`.
 
-Planned next release: `v4.1.1` (`PATCH`)
-- Scope: security-audit workflow tightening, detect-secrets baseline repair,
-  and release-process parity between local and GitHub Actions.
+Planned next release: `v4.2.1` (`PATCH`)
+- Scope: post-release bug fixes, dependency updates, and minor operational hardening following the app catalog expansion.
 
 This document defines the standard process for all future releases.
 

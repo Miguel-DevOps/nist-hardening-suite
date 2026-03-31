@@ -1,5 +1,28 @@
 # Changelog
 
+## [4.2.0] - 2026-03-30
+
+### Security
+- **System hardening enhancements**: Enhanced system security configurations and
+  compliance settings across the suite to reinforce the hardening baseline.
+
+### Features
+- **App deployment configurations added**: Introduced secure configuration and 
+  deployment files (Docker Compose and `.env.example`) for Chatwoot, n8n, 
+  Twenty CRM, and Uptime Kuma to the recommended apps catalog.
+
+### Fixes
+- **Script execution permissions**: Corrected file permissions for 
+  `monitor-crowdsec.sh` and `setup.sh` to ensure proper execution during setup
+  and monitoring.
+- **Dependency pinning**: Pinned versions of dependencies to specific releases 
+  to ensure stable, reproducible builds and prevent upstream breakage.
+
+### Documentation
+- **Compliance guidance updated**: Updated compliance warnings across multiple 
+  roles to enhance overall security guidance and operator awareness regarding 
+  NIST standards.
+
 ## [4.1.1] - 2026-03-16
 
 ### Security

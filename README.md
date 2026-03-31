@@ -571,7 +571,7 @@ Complete documentation for this project:
 | **[REGULATORY_REFERENCES.md](REGULATORY_REFERENCES.md)** | Official authority domains and citation policy for standards references |
 | **[AUDIT_EVIDENCE.md](AUDIT_EVIDENCE.md)** | Reproducible verification commands, lint gates, and audit evidence collection checklist |
 | **[ROADMAP.md](ROADMAP.md)** | Priority roadmap by urgency (U0/U1/U2), current strengths, and future implementations |
-| **[CHANGELOG.md](CHANGELOG.md)** | Version history and release notes (`v1.0.0` to `v3.0.0`) |
+| **[CHANGELOG.md](CHANGELOG.md)** | Version history and release notes (`v1.0.0` to `v4.2.0`) |
 | **[CONTRIBUTING.md](CONTRIBUTING.md)** | Contribution guidelines, development setup, and code quality standards |
 | **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** | Community guidelines and expected behavior |
 | **[RELEASE.md](RELEASE.md)** | Version-agnostic release procedure aligned with `uv` and current QA gates |
@@ -579,7 +579,7 @@ Complete documentation for this project:
 ---
 ## 📬 Contact & Brand
 
-**Maintained by:** Miguel Lozano — Site Reliability Engineer & FinOps Architect  
+**Maintained by:** Miguel Lozano — Cloud Infrastructure Engineer & FinOps Specialist
 **Brand:** Developmi | **GitHub:** [Miguel-DevOps](https://github.com/Miguel-DevOps)
 
 * **Website:** [developmi.com](https://developmi.com)

@@ -14,26 +14,29 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 | `v1.3.0` | 2026-03-12 | tag on `21a5d19` | Security hardening fixes, Tailscale auth key hardening, Portainer Edge improvements, `uv` toolchain migration |
 | `v1.3.1` | 2026-03-12 | tag on `c19f7c7` | Caddy security integration audit fixes across AC-2, AU-12, SI-4, SC-7, and configuration hygiene |
 | `v2.0.0` | 2026-03-13 | tag on `6416f11` | Breaking release: Tailscale ACL OAuth-only credentials and release governance alignment |
-| `v3.0.0` | 2026-03-13 | release tag on current `master` | Breaking release: Portainer Edge key-per-node migration, brain routing, and server hardening |
+| `v3.0.0` | 2026-03-13 | tag on `098ea1e` | Breaking release: Portainer Edge key-per-node migration, brain routing, and server hardening |
 | `v3.0.1` | 2026-03-13 | tag on `d88d649` | Hotfix: Portainer Edge resolved key variable in agent template |
-| `v3.1.0` | 2026-03-15 | (planned tag) | Observability template consolidation, Caddy WAF v2 pin, ingress runtime hardening, exporter bridge-mode hardening |
-| `v4.0.0` | 2026-03-15 | (planned tag) | Breaking: Uptime Kuma decoupled from observability role; transport policy enforces overlay-only operations in non-bootstrap playbooks |
-| `v4.1.0` | 2026-03-15 | (planned tag) | Caddyfile optional-app integration mode examples and roadmap alignment updates |
-| `v4.1.1` | 2026-03-16 | (planned tag) | Patch: detect-secrets baseline repair and tag-driven security audit workflow parity |
+| `v3.1.0` | 2026-03-15 | tag on `bf4915a` | Observability template consolidation, Caddy WAF v2 pin, ingress runtime hardening, exporter bridge-mode hardening |
+| `v4.0.0` | 2026-03-15 | tag on `0301cb8` | Breaking: Uptime Kuma decoupled from observability role; transport policy enforces overlay-only operations in non-bootstrap playbooks |
+| `v4.1.0` | 2026-03-15 | tag on `2e7fc8b` | Caddyfile optional-app integration mode examples and roadmap alignment updates |
+| `v4.1.1` | 2026-03-16 | tag on `12cec68` | Patch: detect-secrets baseline repair and tag-driven security audit workflow parity |
+| `v4.2.0` | 2026-03-30 | (current tag) | Feature: Added secure deployment configs for Chatwoot, n8n, Twenty CRM, and Uptime Kuma; enhanced hardening and pinned dependencies |
 
-### What Is Working Well in Current Working Tree (Post-`v3.0.1`)
+### What Is Working Well in Current Working Tree (v4.2.0)
 - NIST-focused architecture remains consistent (`AC-2`, `CM-7`, `SC-7`, `SI-4`, `AU-12`, `SC-28` audit scope).
 - Security stack is cohesive: SSH hardening, UFW/fail2ban, CrowdSec, Tailscale, Vault workflow.
 - Operational playbooks (`stacks.yml`, `monitoring.yml`, `nuke.yml`) enforce Tailscale-only transport via `tailscale_subnet` source-of-truth variable.
-- Observability deployment is fully automated end-to-end via Ansible and Vault-backed secrets; Uptime Kuma is decoupled as a recommended app.
+- Observability deployment is fully automated end-to-end via Ansible and Vault-backed secrets.
+- Recommended app catalog now provides secure, Zero Trust-aligned deployment configurations for Chatwoot, n8n, Twenty CRM, and Uptime Kuma.
 - Caddy WAF v2 is pinned, runtime-hardened, and ships annotated integration mode examples for optional app exposure patterns.
-- Recent releases improved runtime compatibility, Portainer/Tailscale hardening, observability reliability, Caddy security monitoring/auditability, ACL policy safety checks, and Zero Trust transport enforcement.
+- System security configurations and compliance guidance are reinforced across multiple roles, with strict dependency pinning ensuring reproducible builds.
 - Tooling modernization is in place with `uv` and Python `3.14`.
 
 ### Improvement Focus (Without Overstating Risk)
 - Reduce imperative tasks (`shell`/`command`) where native Ansible modules can improve idempotence and auditability.
 - Improve tag semantics in destructive workflows (`nuke.yml`) for safer operations.
 - Keep documentation, CI evidence, and implemented behavior aligned release to release.
+- Maintain security parity and update cadence for the newly expanded recommended apps catalog.
 
 ## Priority Plan by Urgency
 
@@ -124,5 +127,5 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 
 ---
 
-Maintained by Miguel Lozano - Site Reliability Engineer & FinOps Architect
-Last updated: 2026-03-15
+Maintained by Miguel Lozano - Cloud Infrastructure Engineer & FinOps Specialist
+Last updated: 2026-03-30
