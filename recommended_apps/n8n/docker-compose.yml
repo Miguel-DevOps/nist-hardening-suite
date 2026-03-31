@@ -1,0 +1,81 @@
+services:
+  n8n:
+    image: n8nio/n8n:2.15.0 # Latest stable version in March 2026
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "5678:5678"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - n8n_internal
+      - public_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5678/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  n8n-worker:
+    image: n8nio/n8n:2.15.0
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    command: worker
+    volumes:
+      - n8n_data:/home/node/.n8n
+    networks:
+      - n8n_internal
+
+  postgres:
+    image: ${N8N_DB_IMAGE:-postgres:17}
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${N8N_DB_POSTGRESDB_USER}
+      - POSTGRES_PASSWORD=${N8N_DB_POSTGRESDB_PASSWORD}
+      - POSTGRES_DB=${N8N_DB_POSTGRESDB_DATABASE}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - n8n_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  valkey:
+    image: ${N8N_VALKEY_IMAGE:-valkey/valkey:9.0.3}
+    restart: unless-stopped
+    command: ["valkey-server", "--save", "", "--appendonly", "no", "--requirepass", "${N8N_REDIS_PASSWORD}"]
+    volumes:
+      - valkey_data:/data
+    networks:
+      - n8n_internal
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli -a $${N8N_REDIS_PASSWORD} ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  n8n_data:
+  postgres_data:
+  valkey_data:
+
+networks:
+  public_net:
+    external: true
+  n8n_internal:
+    driver: bridge

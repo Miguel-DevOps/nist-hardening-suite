@@ -11,6 +11,11 @@ services:
       - "3001"
     networks:
       - public_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:3001/ || wget --no-verbose --tries=1 --spider http://127.0.0.1:3001/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
 networks:
   public_net:

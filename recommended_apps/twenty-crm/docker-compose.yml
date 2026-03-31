@@ -1,0 +1,69 @@
+services:
+  twenty-db:
+    image: ${TWENTY_DB_IMAGE:-postgres:17-alpine}
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${TWENTY_DB_USER}
+      - POSTGRES_PASSWORD=${TWENTY_DB_PASSWORD}
+      - POSTGRES_DB=twenty
+    volumes:
+      - twenty_db_data:/var/lib/postgresql/data
+    networks:
+      - twenty_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  twenty-valkey:
+    image: ${TWENTY_VALKEY_IMAGE:-valkey/valkey:9.0.3}
+    restart: unless-stopped
+    command: ["valkey-server", "--requirepass", "${TWENTY_REDIS_PASSWORD}"]
+    volumes:
+      - twenty_valkey_data:/data
+    networks:
+      - twenty_net
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli -a ${TWENTY_REDIS_PASSWORD} ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  twenty:
+    image: ${TWENTY_IMAGE:-twentycrm/twenty:v1.19.0}
+    restart: unless-stopped
+    ports:
+      - "8000:3000"
+    depends_on:
+      twenty-db:
+        condition: service_healthy
+      twenty-valkey:
+        condition: service_healthy
+    environment:
+      - PORT=3000
+      - SERVER_URL=${TWENTY_SERVER_URL}
+      - APP_SECRET=${TWENTY_APP_SECRET}
+      - PG_DATABASE_URL=postgres://${TWENTY_DB_USER}:${TWENTY_DB_PASSWORD}@twenty-db:5432/twenty
+      - REDIS_URL=redis://default:${TWENTY_REDIS_PASSWORD}@twenty-valkey:6379
+    volumes:
+      - twenty_storage:/app/storage
+    networks:
+      - public_net
+      - twenty_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/healthz || wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  twenty_db_data:
+  twenty_storage:
+  twenty_valkey_data:
+
+networks:
+  public_net:
+    external: true
+  twenty_net:
+    driver: bridge
