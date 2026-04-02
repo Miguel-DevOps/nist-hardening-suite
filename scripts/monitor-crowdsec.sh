@@ -3,7 +3,7 @@
 # CrowdSec Monitoring Script
 # ==============================================================================
 # Purpose: Check CrowdSec health and security status
-# Usage: ./monitor-crowdsec.sh [--json|--quiet|--alerts]
+# Usage: ./monitor-crowdsec.sh [--json|--quiet|--alerts|--status]
 # Part of NIST Hardening Suite
 # ==============================================================================
 
@@ -22,6 +22,13 @@ CROWD_SEC_SERVICE="crowdsec"
 BOUNCER_SERVICE="crowdsec-firewall-bouncer"
 LOG_FILE="/var/log/crowdsec.log"
 MAX_ALERTS_AGE_HOURS=24
+
+require_uv() {
+    if ! command -v uv &> /dev/null; then
+        print_status "ERROR" "uv is not installed"
+        return 1
+    fi
+}
 
 # Functions
 print_status() {
@@ -46,6 +53,10 @@ print_status() {
 
 check_service() {
     local service=$1
+    if ! command -v systemctl &> /dev/null; then
+        print_status "WARNING" "systemctl is not available; skipping service check for $service"
+        return 0
+    fi
     if systemctl is-active --quiet "$service"; then
         print_status "OK" "Service $service is running"
         return 0
@@ -67,14 +78,18 @@ check_cscli() {
 
 check_alerts() {
     local alerts_count
-    alerts_count=$($CSCLI_PATH alerts list -o json 2>/dev/null | jq '. | length' 2>/dev/null || echo "0")
+    alerts_count=$(
+        "$CSCLI_PATH" alerts list -o json 2>/dev/null \
+            | uv run python -c 'import json,sys; data=json.load(sys.stdin); print(len(data))' 2>/dev/null \
+            || echo "0"
+    )
     
     if [[ "$alerts_count" -gt 0 ]]; then
         print_status "WARNING" "Found $alerts_count active security alert(s)"
         
         if [[ "${SHOW_ALERTS:-false}" == "true" ]]; then
             echo -e "\n${YELLOW}Recent alerts:${NC}"
-            $CSCLI_PATH alerts list --since 24h
+            "$CSCLI_PATH" alerts list --since "${MAX_ALERTS_AGE_HOURS}h"
         fi
     else
         print_status "OK" "No active security alerts"
@@ -105,7 +120,11 @@ check_collections() {
 
 check_decisions() {
     local decisions_count
-    decisions_count=$($CSCLI_PATH decisions list -o json 2>/dev/null | jq '. | length' 2>/dev/null || echo "0")
+    decisions_count=$(
+        "$CSCLI_PATH" decisions list -o json 2>/dev/null \
+            | uv run python -c 'import json,sys; data=json.load(sys.stdin); print(len(data))' 2>/dev/null \
+            || echo "0"
+    )
     
     if [[ "$decisions_count" -gt 0 ]]; then
         print_status "INFO" "Active decisions: $decisions_count (blocked IPs)"
@@ -126,7 +145,7 @@ check_metrics() {
 check_logs() {
     if [[ -f "$LOG_FILE" ]]; then
         local recent_errors
-        recent_errors=$(grep -c "error\|ERROR" "$LOG_FILE" 2>/dev/null | tail -100 || echo "0")
+        recent_errors=$(grep -cE 'error|ERROR' "$LOG_FILE" 2>/dev/null || echo "0")
         
         if [[ "$recent_errors" -gt 0 ]]; then
             print_status "WARNING" "Found $recent_errors error(s) in recent logs"
@@ -139,25 +158,42 @@ check_logs() {
 }
 
 generate_report() {
+    local report_status=0
+    local cscli_ready=0
     echo -e "\n${BLUE}=== CrowdSec Security Report ===${NC}"
     echo "Date: $(date)"
     echo "Host: $(hostname)"
     echo "IP: $(hostname -I 2>/dev/null | head -1 || echo 'N/A')"
     echo ""
     
-    check_cscli
-    check_service "$CROWD_SEC_SERVICE"
-    check_service "$BOUNCER_SERVICE"
-    check_bouncer
-    check_collections
-    check_alerts
-    check_decisions
-    check_metrics
-    check_logs
+    if check_cscli; then
+        cscli_ready=1
+    else
+        report_status=1
+    fi
+    if ! check_service "$CROWD_SEC_SERVICE"; then report_status=1; fi
+    if ! check_service "$BOUNCER_SERVICE"; then report_status=1; fi
+    if [[ "$cscli_ready" -eq 1 ]]; then
+        if ! check_bouncer; then report_status=1; fi
+        if ! check_collections; then report_status=1; fi
+        if ! check_alerts; then report_status=1; fi
+        if ! check_decisions; then report_status=1; fi
+    else
+        print_status "WARNING" "Skipping cscli-dependent checks"
+    fi
+    if ! check_metrics; then report_status=1; fi
+    if ! check_logs; then report_status=1; fi
+
+    return "$report_status"
 }
 
 generate_json_report() {
-    $CSCLI_PATH status -o json 2>/dev/null || echo '{"error": "cscli not available"}'
+    if ! check_cscli; then
+        echo '{"error": "cscli not available"}'
+        return 1
+    fi
+
+    "$CSCLI_PATH" status -o json 2>/dev/null || echo '{"error": "cscli status failed"}'
 }
 
 show_usage() {
@@ -185,12 +221,19 @@ EOF
 # Main execution
 main() {
     local mode="report"
+    local exit_code=0
+
+    if ! require_uv; then
+        exit 1
+    fi
     
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --json)
-                generate_json_report
+                if ! generate_json_report; then
+                    exit 1
+                fi
                 exit 0
                 ;;
             --quiet)
@@ -218,15 +261,21 @@ main() {
     
     case "$mode" in
         "report")
-            generate_report
+            if ! generate_report; then
+                print_status "WARNING" "Monitoring completed with warnings"
+                exit_code=1
+            fi
             ;;
         "quiet")
-            generate_report > /dev/null
+            if ! generate_report > /dev/null; then
+                exit_code=1
+            fi
             ;;
     esac
     
     echo -e "\n${BLUE}=== Monitoring Complete ===${NC}"
     echo "Monitoring complete. Refer to project documentation for extended monitoring options."
+    exit "$exit_code"
 }
 
 # Run main

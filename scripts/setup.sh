@@ -2,7 +2,7 @@
 # ==============================================================================
 # NIST Hardening Suite - Bootstrap Script
 # ==============================================================================
-# Purpose: Quick setup and validation for the NIST Hardening Suite
+# Purpose: Safe bootstrap and validation for the NIST Hardening Suite
 # Usage: ./setup.sh [--install|--validate|--help]
 # ==============================================================================
 
@@ -18,8 +18,8 @@ NC='\033[0m' # No Color
 # Configuration
 REPO_NAME="nist-hardening-suite"
 REPO_URL="https://github.com/Miguel-DevOps/nist-hardening-suite.git"
-ANSIBLE_MIN_VERSION="2.16"
-PYTHON_MIN_VERSION="3.12"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Functions
 print_header() {
@@ -42,94 +42,69 @@ print_info() {
     echo -e "${BLUE}ℹ️  $1${NC}"
 }
 
+enter_repo_root() {
+    cd "$REPO_ROOT"
+}
+
+require_uv() {
+    if ! command -v uv &> /dev/null; then
+        print_error "uv is not installed"
+        print_info "Install uv and re-run this script."
+        print_info "Reference: https://docs.astral.sh/uv/"
+        return 1
+    fi
+}
+
 check_prerequisites() {
     print_header "Checking Prerequisites"
-    
-    # Check Python
-    if command -v python3 &> /dev/null; then
-        PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-        if [[ $(echo "$PYTHON_VERSION >= $PYTHON_MIN_VERSION" | bc -l 2>/dev/null) -eq 1 ]]; then
-            print_success "Python $PYTHON_VERSION (>= $PYTHON_MIN_VERSION required)"
-        else
-            print_error "Python $PYTHON_VERSION found, but $PYTHON_MIN_VERSION+ required"
-            return 1
-        fi
-    else
-        print_error "Python3 not found"
+    require_uv || return 1
+
+    if [[ ! -f "pyproject.toml" ]]; then
+        print_error "pyproject.toml not found"
         return 1
     fi
-    
-    # Check Ansible
-    if command -v ansible &> /dev/null; then
-        ANSIBLE_VERSION=$(ansible --version | head -1 | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+')
-        if [[ $(echo "$ANSIBLE_VERSION >= $ANSIBLE_MIN_VERSION" | bc -l 2>/dev/null) -eq 1 ]]; then
-            print_success "Ansible $ANSIBLE_VERSION (>= $ANSIBLE_MIN_VERSION required)"
-        else
-            print_error "Ansible $ANSIBLE_VERSION found, but $ANSIBLE_MIN_VERSION+ required"
-            return 1
-        fi
-    else
-        print_warning "Ansible not found. Attempting to install..."
-        install_ansible
-    fi
-    
-    # Check ansible-vault
-    if command -v ansible-vault &> /dev/null; then
-        print_success "ansible-vault available"
-    else
-        print_error "ansible-vault not found (part of ansible-core)"
+
+    if [[ ! -f "requirements.yml" ]]; then
+        print_error "requirements.yml not found"
         return 1
     fi
-    
-    # Check SSH
+
+    print_success "uv is available"
+
+    if ! uv run ansible --version > /dev/null 2>&1; then
+        print_warning "Ansible tooling is not ready yet"
+        print_info "Run: uv sync"
+        return 1
+    fi
+
+    if ! uv run ansible-vault --version > /dev/null 2>&1; then
+        print_warning "ansible-vault is not ready yet"
+        print_info "Run: uv sync"
+        return 1
+    fi
+
     if [[ -f "$HOME/.ssh/id_ed25519" || -f "$HOME/.ssh/id_rsa" ]]; then
         print_success "SSH key found"
     else
         print_warning "No SSH key found in ~/.ssh/"
         print_info "Generate one with: ssh-keygen -t ed25519"
     fi
-    
+
     print_success "All prerequisites satisfied"
 }
 
-install_ansible() {
-    print_header "Installing Ansible"
-    
-    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        if command -v apt &> /dev/null; then
-            sudo apt update
-            sudo apt install -y python3-pip
-            pip3 install ansible-core==2.16.*
-        elif command -v yum &> /dev/null; then
-            sudo yum install -y python3-pip
-            pip3 install ansible-core==2.16.*
-        elif command -v dnf &> /dev/null; then
-            sudo dnf install -y python3-pip
-            pip3 install ansible-core==2.16.*
-        else
-            print_error "Unsupported package manager. Install ansible-core manually:"
-            print_info "pip3 install ansible-core==2.16.*"
-            return 1
-        fi
-    else
-        print_error "Unsupported OS. Install ansible-core manually:"
-        print_info "pip3 install ansible-core==2.16.*"
-        return 1
-    fi
-    
-    if command -v ansible &> /dev/null; then
-        print_success "Ansible installed successfully"
-    else
-        print_error "Ansible installation failed"
-        return 1
-    fi
+sync_toolchain() {
+    print_header "Syncing Toolchain"
+    require_uv || return 1
+    uv sync
+    print_success "Toolchain synchronized"
 }
 
 install_collections() {
     print_header "Installing Ansible Collections"
     
     if [[ -f "requirements.yml" ]]; then
-        ansible-galaxy collection install -r requirements.yml
+        uv run ansible-galaxy collection install -r requirements.yml
         print_success "Ansible collections installed"
     else
         print_error "requirements.yml not found"
@@ -160,16 +135,17 @@ setup_secrets() {
     
     if [[ -f "group_vars/all/secrets.yml" ]]; then
         print_success "secrets.yml already exists"
-        print_info "To edit: ansible-vault edit group_vars/all/secrets.yml"
+        print_info "To edit: uv run ansible-vault edit group_vars/all/secrets.yml"
         return 0
     fi
     
     if [[ -f "group_vars/all/secrets.yml.example" ]]; then
         print_info "Copying example secrets file..."
         cp group_vars/all/secrets.yml.example group_vars/all/secrets.yml
+        chmod 600 group_vars/all/secrets.yml
         
         print_warning "Secrets file created but NOT encrypted"
-        print_info "To encrypt: ansible-vault encrypt group_vars/all/secrets.yml"
+        print_info "To encrypt: uv run ansible-vault encrypt group_vars/all/secrets.yml"
         print_info "Required secrets:"
         echo "  - vault_github_token (GitHub Personal Access Token)"
         echo "  - tailscale_auth_key (Tailscale OAuth client secret for node join)"
@@ -185,7 +161,7 @@ validate_playbooks() {
     print_header "Validating Ansible Playbooks"
     
     if [[ -f "site.yml" ]]; then
-        ansible-playbook site.yml --syntax-check
+        uv run ansible-playbook site.yml --syntax-check
         print_success "site.yml syntax valid"
     else
         print_error "site.yml not found"
@@ -193,10 +169,35 @@ validate_playbooks() {
     fi
     
     if [[ -f "stacks.yml" ]]; then
-        ansible-playbook stacks.yml --syntax-check
+        uv run ansible-playbook stacks.yml --syntax-check
         print_success "stacks.yml syntax valid"
     else
         print_warning "stacks.yml not found (optional)"
+    fi
+
+    if [[ -f "monitoring.yml" ]]; then
+        uv run ansible-playbook monitoring.yml --syntax-check
+        print_success "monitoring.yml syntax valid"
+    else
+        print_warning "monitoring.yml not found (optional)"
+    fi
+}
+
+validate_secrets() {
+    print_header "Validating Secrets"
+
+    if [[ -f "group_vars/all/secrets.yml" ]]; then
+        print_success "secrets.yml exists"
+        local secret_mode
+        secret_mode=$(stat -c "%a" group_vars/all/secrets.yml 2>/dev/null || echo "600")
+        if [[ "$secret_mode" != "600" ]]; then
+            print_warning "secrets.yml permissions are not 600"
+            print_info "Fix: chmod 600 group_vars/all/secrets.yml"
+        fi
+    else
+        print_warning "secrets.yml not found"
+        print_info "Copy the example: cp group_vars/all/secrets.yml.example group_vars/all/secrets.yml"
+        print_info "Then encrypt it: uv run ansible-vault encrypt group_vars/all/secrets.yml"
     fi
 }
 
@@ -205,13 +206,13 @@ show_next_steps() {
     
     echo -e "${GREEN}1.${NC} Edit inventory/hosts.ini with your server IPs"
     echo -e "${GREEN}2.${NC} Configure secrets:"
-    echo -e "   ${BLUE}ansible-vault edit group_vars/all/secrets.yml${NC}"
+    echo -e "   ${BLUE}uv run ansible-vault edit group_vars/all/secrets.yml${NC}"
     echo -e "${GREEN}3.${NC} Run full hardening:"
-    echo -e "   ${BLUE}ansible-playbook -i inventory/hosts.ini site.yml --ask-vault-pass${NC}"
+    echo -e "   ${BLUE}uv run ansible-playbook -i inventory/hosts.ini site.yml --ask-vault-pass${NC}"
     echo -e "${GREEN}4.${NC} Deploy applications:"
-    echo -e "   ${BLUE}ansible-playbook -i inventory/hosts.ini stacks.yml --ask-vault-pass${NC}"
+    echo -e "   ${BLUE}uv run ansible-playbook -i inventory/hosts.ini stacks.yml --ask-vault-pass${NC}"
     echo -e "\n${YELLOW}Need help?${NC}"
-    echo -e "📚 Documentation: https://github.com/Miguel-DevOps/nist-hardening-suite"
+    echo -e "📚 Documentation: ${REPO_URL}"
     echo -e "💼 Professional services: See documentation for details."
 }
 
@@ -219,9 +220,8 @@ run_validation() {
     print_header "Running Complete Validation"
     
     check_prerequisites
-    install_collections
     validate_inventory
-    setup_secrets
+    validate_secrets
     validate_playbooks
     
     print_success "Validation complete!"
@@ -235,18 +235,19 @@ NIST Hardening Suite - Bootstrap Script
 Usage: ./setup.sh [OPTION]
 
 Options:
-  --install    Install prerequisites and collections
-  --validate   Run complete validation (default)
-  --help       Show this help message
+    --install    Sync toolchain and install collections
+    --validate   Run complete validation (default)
+    --help       Show this help message
 
 Examples:
-  ./setup.sh --install   # Install Ansible and collections
+    ./setup.sh --install   # Sync toolchain and install Ansible collections
   ./setup.sh --validate  # Validate setup and show next steps
   ./setup.sh             # Same as --validate
 
 Environment:
   This script sets up the NIST Hardening Suite for first use.
-  It checks prerequisites, installs dependencies, and validates configuration.
+    It checks prerequisites, syncs the toolchain, installs collections,
+    and validates configuration.
 
 Business Model:
   The hardening script is FREE (MIT licensed).
@@ -278,6 +279,8 @@ main() {
                 ;;
         esac
     fi
+
+    enter_repo_root
     
     print_header "NIST Hardening Suite Bootstrap"
     print_info "Mode: $mode"
@@ -287,8 +290,13 @@ main() {
     
     case "$mode" in
         install)
-            check_prerequisites
+            require_uv || exit 1
+            sync_toolchain
             install_collections
+            check_prerequisites
+            validate_inventory
+            setup_secrets
+            validate_playbooks
             print_success "Installation complete!"
             ;;
         validate)
