@@ -12,15 +12,14 @@
   ansible.builtin.debug:
     msg: "Configuring base system packages, timezone, locale, and limits"
 
-- name: Update apt cache
-  ansible.builtin.apt:
-    update_cache: true
-    cache_valid_time: 3600
+- name: Refresh apt cache safely
+  ansible.builtin.import_tasks: apt_refresh.yml
 
 - name: Install software-properties-common
   ansible.builtin.apt:
     name: software-properties-common
     state: present
+    lock_timeout: 600
 
 - name: Enable Universe repository (Ubuntu)
   ansible.builtin.command: add-apt-repository -y universe
@@ -40,7 +39,7 @@
       - gnupg
       - ca-certificates
     state: present
-    update_cache: true
+    lock_timeout: 600
 
 - name: Configure timezone in /etc/environment
   ansible.builtin.lineinfile:
@@ -92,6 +91,7 @@
   ansible.builtin.apt:
     name: unattended-upgrades
     state: present
+    lock_timeout: 600
 
 - name: Configure unattended-upgrades for security only
   ansible.builtin.copy:

@@ -109,6 +109,7 @@
       - auditd
       - audispd-plugins
     state: present
+    lock_timeout: 600
   tags: [nist, si-4, au-12]
 
 - name: SI-4/AU-12 | Configure auditd rules for privileged commands

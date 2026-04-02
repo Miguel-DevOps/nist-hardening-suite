@@ -39,6 +39,7 @@
       - runc
     state: absent
     purge: true
+    lock_timeout: 600
   failed_when: false
 
 - name: Install prerequisites
@@ -49,7 +50,7 @@
       - gnupg
       - python3-docker
     state: present
-    update_cache: true
+    lock_timeout: 600
 
 - name: Create keyrings directory
   ansible.builtin.file:
@@ -75,9 +76,10 @@
     filename: docker
     update_cache: false
 
-- name: Update apt cache
-  ansible.builtin.apt:
-    update_cache: true
+- name: Refresh apt cache safely
+  ansible.builtin.include_role:
+    name: common
+    tasks_from: apt_refresh
 
 - name: Install Docker Engine (Pinned version)
   ansible.builtin.apt:
@@ -89,6 +91,7 @@
       - docker-compose-plugin
     state: present
     allow_downgrade: true
+    lock_timeout: 600
 
 - name: Hold Docker packages to prevent upgrades
   ansible.builtin.dpkg_selections:

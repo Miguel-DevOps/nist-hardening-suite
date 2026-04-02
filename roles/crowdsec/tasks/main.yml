@@ -27,6 +27,7 @@
       - gnupg
       - apt-transport-https
     state: present
+    lock_timeout: 600
   tags: [crowdsec, nist, si-4]
 
 - name: SI-4 | Create keyrings directory
@@ -50,7 +51,7 @@
     repo: "deb [signed-by=/etc/apt/keyrings/crowdsec.asc] https://packagecloud.io/crowdsec/crowdsec/ubuntu/ {{ ansible_facts['distribution_release'] }} main"
     state: present
     filename: crowdsec
-    update_cache: true
+    update_cache: false
   when: ansible_facts['distribution'] == 'Ubuntu'
   tags: [crowdsec, nist, si-4]
 
@@ -59,9 +60,14 @@
     repo: "deb [signed-by=/etc/apt/keyrings/crowdsec.asc] https://packagecloud.io/crowdsec/crowdsec/debian/ {{ ansible_facts['distribution_release'] }} main"
     state: present
     filename: crowdsec
-    update_cache: true
+    update_cache: false
   when: ansible_facts['distribution'] == 'Debian'
   tags: [crowdsec, nist, si-4]
+
+- name: SI-4 | Refresh apt cache safely
+  ansible.builtin.include_role:
+    name: common
+    tasks_from: apt_refresh
 
 - name: SI-4 | Install CrowdSec agent
   ansible.builtin.apt:
@@ -69,6 +75,7 @@
       - crowdsec
       - crowdsec-firewall-bouncer-iptables
     state: present
+    lock_timeout: 600
   tags: [crowdsec, nist, si-4]
 
 - name: SI-4 | Configure CrowdSec for local context

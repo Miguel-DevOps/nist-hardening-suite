@@ -15,6 +15,7 @@
   ansible.builtin.apt:
     name: lynis
     state: present
+    lock_timeout: 600
   tags: [compliance, audit]
 
 - name: Create Lynis audit directory

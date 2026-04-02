@@ -1,0 +1,8 @@
+---
+- name: Refresh apt cache safely
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 0
+    lock_timeout: 600
+    update_cache_retries: 10
+    update_cache_retry_max_delay: 12

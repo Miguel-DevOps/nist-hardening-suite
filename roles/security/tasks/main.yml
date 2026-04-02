@@ -11,10 +11,10 @@
 # ------------------------------------------------------------------------------
 # 1. PRE-REQUISITOS DEL SISTEMA (Debian Fix)
 # ------------------------------------------------------------------------------
-- name: Update apt cache
-  ansible.builtin.apt:
-    update_cache: true
-    cache_valid_time: 3600
+- name: Refresh apt cache safely
+  ansible.builtin.include_role:
+    name: common
+    tasks_from: apt_refresh
 
 - name: Install basic security packages
   ansible.builtin.apt:
@@ -23,6 +23,7 @@
       - fail2ban
       - rsyslog  # CRITICAL: Debian "Minimal" needs this for text logs
     state: present
+    lock_timeout: 600
 
 - name: Ensure rsyslog is running (Fix for Debian Fail2ban crash)
   ansible.builtin.systemd:
@@ -177,6 +178,7 @@
       ansible.builtin.apt:
         name: at
         state: present
+        lock_timeout: 600
       when: cloud_provider == 'oci'
 
     - name: Verify 'atd' service is active for Deadman Switch
@@ -260,6 +262,7 @@
       ansible.builtin.apt:
         name: iptables-persistent
         state: present
+        lock_timeout: 600
       when: cloud_provider == 'oci'
 
     - name: Verify netfilter-persistent is available

@@ -91,13 +91,19 @@
       https://pkgs.tailscale.com/stable/{{ distro_id }} {{ distro_release }} main
     filename: tailscale
     state: present
-    update_cache: true
+    update_cache: false
+
+- name: Refresh apt cache safely
+  ansible.builtin.include_role:
+    name: common
+    tasks_from: apt_refresh
 
 - name: Install Tailscale (version controlled from vault)
   ansible.builtin.apt:
     name: "tailscale={{ tailscale_version | default('*') }}"
     state: present
     allow_downgrade: true
+    lock_timeout: 600
 
 - name: Hold Tailscale package to prevent auto-upgrades (only when pinned)
   ansible.builtin.dpkg_selections:
@@ -117,6 +123,7 @@
   ansible.builtin.apt:
     name: "linux-modules-extra-{{ ansible_facts['kernel'] }}"
     state: present
+    lock_timeout: 600
   register: wireguard_pkg_install
   when: ansible_facts['distribution'] == 'Ubuntu'
   failed_when: >-
