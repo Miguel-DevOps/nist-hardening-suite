@@ -42,6 +42,9 @@ It guarantees that nodes running in **Oracle Cloud** and **Hetzner** maintain an
 
 ## 🚀 Quick Start
 
+Operational policy: the README no longer includes direct terminal execution commands.
+Use **[COMMANDS.md](docs/operations/COMMANDS.md)** as the single source of truth for all setup, deployment, validation, and maintenance commands.
+
 ### Prerequisites
 - Python 3.14+
 - `uv` for reproducible local tooling
@@ -50,16 +53,7 @@ It guarantees that nodes running in **Oracle Cloud** and **Hetzner** maintain an
 - SSH access to target servers
 
 ### 1. Clone & Setup
-```bash
-git clone https://github.com/Miguel-DevOps/nist-hardening-suite.git
-cd nist-hardening-suite
-
-# Sync toolchain (recommended)
-uv sync
-
-# Install Ansible collections
-uv run ansible-galaxy collection install -r requirements.yml
-```
+Follow the initial setup flow in **[COMMANDS.md](docs/operations/COMMANDS.md)** (sections: Help and Initial Setup).
 
 ### 2. Configure Inventory
 Edit `inventory/hosts.ini` with your server IPs and credentials:
@@ -72,14 +66,7 @@ muscle-1 ansible_host=YOUR_PUBLIC_IP ansible_user=ubuntu public_ip=YOUR_PUBLIC_I
 ```
 
 ### 3. Set Up Encrypted Secrets
-```bash
-# Copy and encrypt secrets (GitHub token + Tailscale node auth key required)
-cp group_vars/all/secrets.yml.example group_vars/all/secrets.yml
-ansible-vault encrypt group_vars/all/secrets.yml
-
-# Edit encrypted file
-ansible-vault edit group_vars/all/secrets.yml
-```
+Use the Vault workflow documented in **[COMMANDS.md](docs/operations/COMMANDS.md)** (section: Secrets and Vault).
 
 For Portainer Edge-only deployments, add one entry per Edge environment (node) to `portainer_edge_keys_by_node` in your Vault. Keys use the exact inventory hostname. Recommended naming from day one: `brain-1`, `muscle-1`, `brain-2`, `muscle-2`, etc.
 
@@ -99,33 +86,21 @@ For automated ACL management, also set `tailscale_acl_client_id` and a `tailscal
 Legacy long-lived API tokens are not supported by the current ACL automation flow.
 
 ### 4. Run Base Hardening (NIST Compliance)
-```bash
-# Full NIST hardening (takes ~10-15 minutes)
-uv run ansible-playbook -i inventory/hosts.ini site.yml --ask-vault-pass
+Run the base hardening deployment from **[COMMANDS.md](docs/operations/COMMANDS.md)** (section: Core Deployments).
 
-# Expected output includes:
-# ✅ SSH password auth DISABLED (keys only)
-# ✅ Fail2ban active (3 attempts = 1h ban)  
-# ✅ UFW enabled with Docker ports configured
-# ✅ Tailscale VPN mesh established
-# ✅ NIST controls AC‑2, CM‑7, SC‑7, SI‑4, AU‑12, SC‑28 (secrets via Vault; disk encryption at provisioning) applied
-```
+Expected result includes:
+- SSH password auth disabled (keys only)
+- Fail2ban active (3 attempts = 1h ban)
+- UFW enabled with Docker ports configured
+- Tailscale VPN mesh established
+- NIST controls AC‑2, CM‑7, SC‑7, SI‑4, AU‑12, SC‑28 (secrets via Vault; disk encryption at provisioning) applied
 
 ### 5. Deploy Management Stack
-```bash
-# Create your local ingress template first (intentionally ignored by git)
-cp roles/stack_ingress/templates/Caddyfile.example.j2 roles/stack_ingress/templates/Caddyfile.j2
-
-# After hardening, deploy Portainer Edge Agent + Caddy
-uv run ansible-playbook -i inventory/hosts.ini stacks.yml --ask-vault-pass
-```
+Prepare your local ingress template from `roles/stack_ingress/templates/Caddyfile.example.j2` to `roles/stack_ingress/templates/Caddyfile.j2`, then run the stack deployment flow from **[COMMANDS.md](docs/operations/COMMANDS.md)**.
 
 ### 5.1 Optional Add-on: Observability Stack (Anti-Bloat)
 Use this only on servers with sufficient resources.
-```bash
-# Deploy VictoriaMetrics + Grafana + Loki (optional)
-uv run ansible-playbook -i inventory/hosts.ini monitoring.yml --ask-vault-pass
-```
+Use the observability deployment workflow from **[COMMANDS.md](docs/operations/COMMANDS.md)**.
 
 Observability variable model:
 - `enable_observability_stack`: node hosts Grafana/VictoriaMetrics/Loki preparation
@@ -159,19 +134,7 @@ Selective deployment for observability is available through `monitoring.yml` tag
 
 > **cAdvisor security profile:** cAdvisor runs in a least-privilege profile compatible with hardened Docker hosts: no `privileged`, no host namespace sharing, `no-new-privileges`, read-only filesystem, and reduced metric collection. On Docker hosts using `userns-remap`, this preserves isolation but can reduce container-level visibility compared with a fully privileged deployment.
 
-Post-deploy validation (recommended after each `monitoring.yml` run):
-
-```bash
-# 1) Validate exporters are up on all expected nodes
-uv run ansible all -i inventory/hosts.ini -m shell -a "docker ps --format '{{.Names}} {{.Status}}' | grep -E 'node-exporter|cadvisor'"
-
-# 2) Validate metrics endpoints locally on each node
-uv run ansible all -i inventory/hosts.ini -m shell -a "curl -fsS http://127.0.0.1:9100/metrics >/dev/null && echo node_exporter_ok"
-uv run ansible all -i inventory/hosts.ini -m shell -a "curl -fsS http://127.0.0.1:18080/metrics >/dev/null && echo cadvisor_ok || echo cadvisor_limited_or_down"
-
-# 3) Validate scrape targets from brain (VictoriaMetrics)
-uv run ansible brain -i inventory/hosts.ini -m shell -a "curl -fsS 'http://127.0.0.1:8428/api/v1/targets' | grep -E 'node-exporter|cadvisor'"
-```
+Post-deploy validation (recommended after each `monitoring.yml` run) is documented in **[COMMANDS.md](docs/operations/COMMANDS.md)** under Verification and Monitoring.
 
 Expected result:
 - `node_exporter_ok` should be present on exporter-enabled nodes.
@@ -198,19 +161,10 @@ Deployment model:
 - App compose files are optional artifacts designed for Portainer UI or Docker Compose.
 - For secure defaults, prefer exposing apps through Caddy on `public_net` instead of opening direct host ports.
 
-See `APP_RECOMMENDED_GUIDE.md` for secure deployment patterns and operational guidance.
+See **[APP_RECOMMENDED_GUIDE.md](docs/operations/apps/APP_RECOMMENDED_GUIDE.md)** for secure deployment patterns and operational guidance.
 
 ### 6. Verify & Monitor
-```bash
-# Check security status
-uv run ansible all -i inventory/hosts.ini -m command -a "tailscale status"
-
-# View CrowdSec alerts (intrusion detection)
-uv run ansible all -i inventory/hosts.ini -m shell -a "cscli alerts list"
-
-# Monitor audit logs (NIST AU‑12)
-uv run ansible all -i inventory/hosts.ini -m shell -a "tail -f /var/log/audit/audit.log"
-```
+Use the verification runbook in **[COMMANDS.md](docs/operations/COMMANDS.md)** for Tailscale, CrowdSec, audit logs, and observability checks.
 
 ### 📋 What Gets Installed
 | Component | Purpose | NIST Control |
@@ -258,61 +212,9 @@ Safety valve: nuke is blocked on hosts in the `production` inventory group.
 
 ## 🎯 Execution Control & Tags
 
-Run specific components using Ansible tags:
+Execution control is now centralized through `make` targets and variables (`deploy-tags`, `deploy-skip-tags`, `deploy-custom`, `ANSIBLE_LIMIT`, `ANSIBLE_OPTS`).
 
-### Infrastructure Phases
-```bash
-# Phase 1: Base system only
-ansible-playbook -i inventory/hosts.ini site.yml --tags base,system
-
-# Phase 2: Security hardening only  
-ansible-playbook -i inventory/hosts.ini site.yml --tags security,firewall
-
-# Phase 3: Intrusion prevention (CrowdSec)
-ansible-playbook -i inventory/hosts.ini site.yml --tags crowdsec,ips
-
-# Phase 4: VPN mesh network
-ansible-playbook -i inventory/hosts.ini site.yml --tags vpn,tailscale
-
-# Phase 5: Docker engine
-ansible-playbook -i inventory/hosts.ini site.yml --tags docker,containers
-```
-
-### NIST Control Groups
-```bash
-# Run specific NIST controls
-ansible-playbook -i inventory/hosts.ini site.yml --tags nist          # All NIST controls
-ansible-playbook -i inventory/hosts.ini site.yml --tags nist,ac-2     # Account management
-ansible-playbook -i inventory/hosts.ini site.yml --tags nist,cm-7     # Least functionality
-ansible-playbook -i inventory/hosts.ini site.yml --tags nist,sc-7     # Boundary protection
-ansible-playbook -i inventory/hosts.ini site.yml --tags nist,si-4,au-12 # Monitoring & audit
-ansible-playbook -i inventory/hosts.ini site.yml --tags nist,sc-28    # Data at rest
-```
-
-### Application Stacks
-```bash
-# Deploy specific stacks
-ansible-playbook -i inventory/hosts.ini stacks.yml --tags ingress,caddy
-ansible-playbook -i inventory/hosts.ini stacks.yml --tags portainer,management
-
-# Optional observability add-on
-ansible-playbook -i inventory/hosts.ini monitoring.yml --tags observability,monitoring
-```
-
-### Compliance Audit
-```bash
-# Run Lynis compliance audit (optional)
-ansible-playbook -i inventory/hosts.ini site.yml --tags compliance
-```
-
-### Skip Components
-```bash
-# Skip VPN setup (use existing)
-ansible-playbook -i inventory/hosts.ini site.yml --skip-tags tailscale,vpn
-
-# Skip security tools (testing only)
-ansible-playbook -i inventory/hosts.ini site.yml --skip-tags security,firewall,fail2ban
-```
+For complete usage patterns (infrastructure phases, NIST control groups, stack subsets, compliance-only runs, and skip-tags), see **[COMMANDS.md](docs/operations/COMMANDS.md)**.
 
 ---
 
@@ -401,10 +303,10 @@ graph TD
 ## 🌐 Extended Compliance Positioning (NIST / CIS / ENS / DORA / MITRE)
 
 To keep this README operational and concise, compliance documentation is split into:
-- **[COMPLIANCE.md](COMPLIANCE.md)** (executive compliance overview)
-- **[COMPLIANCE_MAPPINGS.md](COMPLIANCE_MAPPINGS.md)** (detailed control matrices)
-- **[REGULATORY_REFERENCES.md](REGULATORY_REFERENCES.md)** (authoritative reference registry)
-- **[AUDIT_EVIDENCE.md](AUDIT_EVIDENCE.md)** (evidence checklist and verification workflow)
+- **[COMPLIANCE.md](docs/compliance/COMPLIANCE.md)** (executive compliance overview)
+- **[COMPLIANCE_MAPPINGS.md](docs/compliance/COMPLIANCE_MAPPINGS.md)** (detailed control matrices)
+- **[REGULATORY_REFERENCES.md](docs/compliance/REGULATORY_REFERENCES.md)** (authoritative reference registry)
+- **[AUDIT_EVIDENCE.md](docs/compliance/AUDIT_EVIDENCE.md)** (evidence checklist and verification workflow)
 
 ### Zero Trust Implementation (NIST SP 800-207)
 
@@ -494,10 +396,6 @@ Reference:
 Secrets are encrypted with `ansible-vault` and decrypted **in-memory only**, never passed as CLI arguments.
 
 ```yaml
-# Encrypt secrets:
-#   ansible-vault encrypt group_vars/all/secrets.yml
-
-# Use in playbooks with --ask-vault-pass
 - name: Load encrypted secrets
   include_vars:
     file: "group_vars/all/secrets.yml"
@@ -555,7 +453,7 @@ The suite auto‑detects `cloud_provider` (`hetzner`/`oci`) and applies provider
 
 **Built for SRE & FinOps**:  
 - **Idempotent** – safe to run repeatedly  
-- **Tagged roles** – selective execution (`--tags nist,cm‑7,si‑4`)  
+- **Tagged roles** – selective execution via Make orchestration and tag variables  
 - **Cost‑aware** – no unnecessary packages, minimal footprint  
 
 ---
@@ -563,18 +461,47 @@ The suite auto‑detects `cloud_provider` (`hetzner`/`oci`) and applies provider
 
 Complete documentation for this project:
 
+See the full index in **[docs/README.md](docs/README.md)**.
+
+Documentation tree:
+
+```text
+docs/
+├── README.md
+├── architecture/
+│   └── ARCHITECTURE.md
+├── operations/
+│   ├── COMMANDS.md
+│   ├── PRODUCTION_COMMAND_AUDIT.md
+│   └── apps/
+│       └── APP_RECOMMENDED_GUIDE.md
+├── compliance/
+│   ├── COMPLIANCE.md
+│   ├── COMPLIANCE_MAPPINGS.md
+│   ├── REGULATORY_REFERENCES.md
+│   └── AUDIT_EVIDENCE.md
+└── project/
+  ├── ROADMAP.md
+  ├── CHANGELOG.md
+  ├── RELEASE.md
+  ├── CONTRIBUTING.md
+  └── CODE_OF_CONDUCT.md
+```
+
 | Document | Purpose |
 |----------|---------|
-| **[ARCHITECTURE.md](ARCHITECTURE.md)** | System design, component architecture, NIST control mapping, and technical decisions |
-| **[COMPLIANCE.md](COMPLIANCE.md)** | Executive multi-framework compliance overview grounded in implemented controls |
-| **[COMPLIANCE_MAPPINGS.md](COMPLIANCE_MAPPINGS.md)** | Detailed implementation mappings for NIST 800-53/800-207, CIS, ENS, DORA, and MITRE ATT&CK |
-| **[REGULATORY_REFERENCES.md](REGULATORY_REFERENCES.md)** | Official authority domains and citation policy for standards references |
-| **[AUDIT_EVIDENCE.md](AUDIT_EVIDENCE.md)** | Reproducible verification commands, lint gates, and audit evidence collection checklist |
-| **[ROADMAP.md](ROADMAP.md)** | Priority roadmap by urgency (U0/U1/U2), current strengths, and future implementations |
-| **[CHANGELOG.md](CHANGELOG.md)** | Version history and release notes (`v1.0.0` to `v4.2.0`) |
-| **[CONTRIBUTING.md](CONTRIBUTING.md)** | Contribution guidelines, development setup, and code quality standards |
-| **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** | Community guidelines and expected behavior |
-| **[RELEASE.md](RELEASE.md)** | Version-agnostic release procedure aligned with `uv` and current QA gates |
+| **[ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md)** | System design, component architecture, NIST control mapping, and technical decisions |
+| **[COMMANDS.md](docs/operations/COMMANDS.md)** | Single source of truth for all operational commands through Make |
+| **[PRODUCTION_COMMAND_AUDIT.md](docs/operations/PRODUCTION_COMMAND_AUDIT.md)** | Security-first production checklist to validate Make command paths with execution evidence |
+| **[COMPLIANCE.md](docs/compliance/COMPLIANCE.md)** | Executive multi-framework compliance overview grounded in implemented controls |
+| **[COMPLIANCE_MAPPINGS.md](docs/compliance/COMPLIANCE_MAPPINGS.md)** | Detailed implementation mappings for NIST 800-53/800-207, CIS, ENS, DORA, and MITRE ATT&CK |
+| **[REGULATORY_REFERENCES.md](docs/compliance/REGULATORY_REFERENCES.md)** | Official authority domains and citation policy for standards references |
+| **[AUDIT_EVIDENCE.md](docs/compliance/AUDIT_EVIDENCE.md)** | Reproducible verification commands, lint gates, and audit evidence collection checklist |
+| **[ROADMAP.md](docs/project/ROADMAP.md)** | Priority roadmap by urgency (U0/U1/U2), current strengths, and future implementations |
+| **[CHANGELOG.md](docs/project/CHANGELOG.md)** | Version history and release notes (`v1.0.0` to `v4.2.0`) |
+| **[CONTRIBUTING.md](docs/project/CONTRIBUTING.md)** | Contribution guidelines, development setup, and code quality standards |
+| **[CODE_OF_CONDUCT.md](docs/project/CODE_OF_CONDUCT.md)** | Community guidelines and expected behavior |
+| **[RELEASE.md](docs/project/RELEASE.md)** | Version-agnostic release procedure aligned with `uv` and current QA gates |
 
 ---
 ## 📬 Contact & Brand

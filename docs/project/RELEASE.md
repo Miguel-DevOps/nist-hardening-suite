@@ -2,8 +2,8 @@
 
 Current latest release in git: `v4.2.0`.
 
-Planned next release: `v4.2.1` (`PATCH`)
-- Scope: post-release bug fixes, dependency updates, and minor operational hardening following the app catalog expansion.
+Planned next release: `v4.3.0` (`MINOR`)
+- Scope: backwards-compatible feature additions (operations Make interface) plus reliability fixes and operational hardening.
 
 This document defines the standard process for all future releases.
 
@@ -78,8 +78,8 @@ git checkout -b release/vX.Y.Z
 
 ### 2. Verify Documentation
 - [ ] README.md is accurate and NIST claims match implementation
-- [ ] ARCHITECTURE.md reflects actual system design
-- [ ] CHANGELOG.md documents all changes for this release
+- [ ] docs/architecture/ARCHITECTURE.md reflects actual system design
+- [ ] docs/project/CHANGELOG.md documents all changes for this release
 - [ ] All links are valid (no broken references)
 
 ### 2.1 Organize Atomic Commits Before Release
@@ -117,7 +117,7 @@ Validation:
 - Quality gates passed with uv-managed toolchain
 - Docs updated (README, ROADMAP, CHANGELOG)
 
-See CHANGELOG.md for full details."
+See docs/project/CHANGELOG.md for full details."
 
 git tag -a vX.Y.Z -m "NIST Hardening Suite vX.Y.Z"
 git push origin release/vX.Y.Z
@@ -154,4 +154,3 @@ Practical mapping for this repository:
 ---
 
 **Note:** All releases require passing GitHub Actions security audit workflow.
-

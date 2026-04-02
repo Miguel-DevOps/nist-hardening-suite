@@ -113,7 +113,7 @@ nist-hardening-suite/
 ├── site.yml                 # Main hardening playbook
 ├── stacks.yml               # Application deployment playbook
 ├── nuke.yml                 # Complete cleanup playbook
-└── ARCHITECTURE.md          # This document
+└── docs/architecture/ARCHITECTURE.md  # This document
 ```
 
 ## 🔧 Technical Decisions

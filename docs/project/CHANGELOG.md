@@ -1,5 +1,20 @@
 # Changelog
 
+## [4.3.0] - 2026-04-01
+
+### Fixes
+- **APT reliability hardening across roles**: Introduced shared `apt_refresh` flow in `roles/common/tasks/apt_refresh.yml` and reused it from `common`, `docker`, `security`, `crowdsec`, and `tailscale_client` roles to reduce lock contention and transient cache-refresh failures.
+- **Package operation stability**: Added `lock_timeout: 600` to critical `ansible.builtin.apt` tasks affecting base packages, Docker engine installation, compliance tooling, CrowdSec, Tailscale, and NIST audit dependencies.
+- **CrowdSec monitor robustness**: `scripts/monitor-crowdsec.sh` now checks for required tooling, degrades gracefully when `systemctl` is unavailable, removes `jq` dependency by parsing JSON with `uv run python`, and returns non-zero on warning/error states.
+- **Bootstrap script safety**: `scripts/setup.sh` now standardizes execution through `uv`, validates repository prerequisites before running, tightens secret-file handling, and extends validation coverage (`monitoring.yml` + vault checks).
+
+### Features
+- **Make-based operations interface**: Added a project `Makefile` as the primary command surface for sync, lint, deploy, validation, vault operations, observability checks, and guarded destructive operations.
+
+### Documentation
+- **Documentation tree consolidation**: Project, compliance, architecture, and operations references are now organized under `docs/` with updated links from `README.md` and workflow comments.
+- **Command source-of-truth policy**: `README.md` now defers command execution details to `docs/operations/COMMANDS.md` to reduce drift and keep operational runbooks centralized.
+
 ## [4.2.0] - 2026-03-30
 
 ### Security
