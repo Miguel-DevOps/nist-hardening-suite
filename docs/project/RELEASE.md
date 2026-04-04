@@ -1,9 +1,6 @@
 # Release Procedure
 
-Current latest release in git: `v4.2.0`.
-
-Planned next release: `v4.3.0` (`MINOR`)
-- Scope: backwards-compatible feature additions (operations Make interface) plus reliability fixes and operational hardening.
+Current latest release in git: `v4.3.0`.
 
 This document defines the standard process for all future releases.
 

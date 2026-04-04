@@ -22,7 +22,7 @@
 > 
 > **Business Model:** The hardening script is free (MIT licensed). I charge a monthly retainer for continuous monitoring via CrowdSec, ensuring your infrastructure stays compliant.
 
-> **Current Release:** `v4.1.1` (Security audit workflow tightening, detect-secrets baseline repair, overlay-only transport enforcement, Uptime Kuma decoupled from observability, Caddyfile integration modes, and documentation alignment)
+> **Current Release:** `v4.3.0` (APT reliability hardening across roles, Make-based operations interface, CrowdSec monitor robustness, bootstrap safety improvements, and documentation consolidation)
 
 ---
 
@@ -153,6 +153,12 @@ Warning: service-specific cleanup can leave shared observability assets in place
 Recommended apps that are not part of the core observability role now live under `recommended_apps/`.
 
 Current catalog:
+- `recommended_apps/chatwoot/docker-compose.yml`
+- `recommended_apps/chatwoot/.env.example`
+- `recommended_apps/n8n/docker-compose.yml`
+- `recommended_apps/n8n/.env.example`
+- `recommended_apps/twenty-crm/docker-compose.yml`
+- `recommended_apps/twenty-crm/.env.example`
 - `recommended_apps/uptime-kuma/docker-compose.yml`
 - `recommended_apps/uptime-kuma/.env.example`
 
@@ -355,40 +361,6 @@ Reference:
 
 ---
 
-## 🛠️ Engineering Roadmap
-
-### Phase 1 — Base Hardening ✅
-
-* [x] Hardened `sshd_config` template
-* [x] UFW firewall with default deny
-* [x] Automated security updates on bootstrap
-
-### Phase 2 — System Monitoring (auditd) ✅
-
-* [x] `auditd` installation & configuration
-* [x] NIST‑aligned audit rules (SI‑4, AU‑12)
-* [x] Real‑time syscall monitoring
-
-### Phase 3 — Secrets Management (Ansible Vault) ✅
-
-* [x] Centralized secrets with `ansible‑vault`
-* [x] Encrypted variable validation
-* [x] GitOps‑ready secret workflow
-
-### Phase 4 — Least Functionality (CM‑7) ✅
-
-* [x] Unused filesystems blacklisted
-* [x] Kernel module hardening
-
-### Phase 5 — Provider‑Agnostic Hardening ✅
-
-* [x] Cloud provider detection (`hetzner`/`oci`)
-* [x] OCI iptables killswitch
-* [x] Hetzner rate‑limited SSH
-* [x] CI/CD with convergence testing
-
----
-
 ## 💻 Code Highlights
 
 ### Secure Secret Loading (Ansible Vault)
@@ -498,7 +470,7 @@ docs/
 | **[REGULATORY_REFERENCES.md](docs/compliance/REGULATORY_REFERENCES.md)** | Official authority domains and citation policy for standards references |
 | **[AUDIT_EVIDENCE.md](docs/compliance/AUDIT_EVIDENCE.md)** | Reproducible verification commands, lint gates, and audit evidence collection checklist |
 | **[ROADMAP.md](docs/project/ROADMAP.md)** | Priority roadmap by urgency (U0/U1/U2), current strengths, and future implementations |
-| **[CHANGELOG.md](docs/project/CHANGELOG.md)** | Version history and release notes (`v1.0.0` to `v4.2.0`) |
+| **[CHANGELOG.md](docs/project/CHANGELOG.md)** | Version history and release notes (`v1.0.0` to `v4.3.0`) |
 | **[CONTRIBUTING.md](docs/project/CONTRIBUTING.md)** | Contribution guidelines, development setup, and code quality standards |
 | **[CODE_OF_CONDUCT.md](docs/project/CODE_OF_CONDUCT.md)** | Community guidelines and expected behavior |
 | **[RELEASE.md](docs/project/RELEASE.md)** | Version-agnostic release procedure aligned with `uv` and current QA gates |

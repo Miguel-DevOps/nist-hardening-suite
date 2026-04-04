@@ -20,9 +20,10 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 | `v4.0.0` | 2026-03-15 | tag on `0301cb8` | Breaking: Uptime Kuma decoupled from observability role; transport policy enforces overlay-only operations in non-bootstrap playbooks |
 | `v4.1.0` | 2026-03-15 | tag on `2e7fc8b` | Caddyfile optional-app integration mode examples and roadmap alignment updates |
 | `v4.1.1` | 2026-03-16 | tag on `12cec68` | Patch: detect-secrets baseline repair and tag-driven security audit workflow parity |
-| `v4.2.0` | 2026-03-30 | (current tag) | Feature: Added secure deployment configs for Chatwoot, n8n, Twenty CRM, and Uptime Kuma; enhanced hardening and pinned dependencies |
+| `v4.2.0` | 2026-03-30 | tag on `8bf5ea1` | Feature: Added secure deployment configs for Chatwoot, n8n, Twenty CRM, and Uptime Kuma; enhanced hardening and pinned dependencies |
+| `v4.3.0` | 2026-04-01 | tag on `68bac30` (current tag) | Reliability hardening across roles, Make-based operations interface, CrowdSec monitor robustness, and bootstrap safety improvements |
 
-### What Is Working Well in Current Working Tree (v4.2.0)
+### What Is Working Well in Current Working Tree (v4.3.0)
 - NIST-focused architecture remains consistent (`AC-2`, `CM-7`, `SC-7`, `SI-4`, `AU-12`, `SC-28` audit scope).
 - Security stack is cohesive: SSH hardening, UFW/fail2ban, CrowdSec, Tailscale, Vault workflow.
 - Operational playbooks (`stacks.yml`, `monitoring.yml`, `nuke.yml`) enforce Tailscale-only transport via `tailscale_subnet` source-of-truth variable.
@@ -61,7 +62,7 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 - OWASP: `A08`, `A09`.
 
 ### Planned Release Target
-- `v2.0.1` - Operational hardening and documentation parity.
+- `v4.3.1` - Operational hardening and documentation parity.
 
 ## U1 - High (30-60 days)
 
@@ -83,7 +84,7 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 - OWASP: `A09`.
 
 ### Planned Release Target
-- `v2.1.0` - Compliance evidence and operability consistency.
+- `v4.4.0` - Compliance evidence and operability consistency.
 
 ## U2 - Strategic (60-120 days)
 
@@ -97,7 +98,7 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 - Improve multi-node resilience and integration templates.
 
 ### Planned Release Target
-- `v2.2.0` - Policy and scale maturity.
+- `v5.0.0` - Policy and scale maturity.
 
 ## Future Implementations (Backlog)
 - Interactive setup/diagnostics wizard.
@@ -128,4 +129,4 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 ---
 
 Maintained by Miguel Lozano - Cloud Infrastructure Engineer & FinOps Specialist
-Last updated: 2026-03-30
+Last updated: 2026-04-04
