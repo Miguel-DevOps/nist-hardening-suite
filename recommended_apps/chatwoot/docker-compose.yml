@@ -1,3 +1,4 @@
+---
 x-chatwoot-env: &chatwoot_env
   - FRONTEND_URL=${CHATWOOT_FRONTEND_URL}
   - SECRET_KEY_BASE=${CHATWOOT_SECRET_KEY_BASE}
@@ -93,10 +94,9 @@ services:
       retries: 3
 
 volumes:
-  chatwoot_db_data:
-  chatwoot_valkey_data:
-  chatwoot_storage:
-
+  chatwoot_db_data: {}
+  chatwoot_valkey_data: {}
+  chatwoot_storage: {}
 networks:
   public_net:
     external: true

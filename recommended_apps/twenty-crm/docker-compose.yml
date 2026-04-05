@@ -1,3 +1,4 @@
+---
 services:
   twenty-db:
     image: ${TWENTY_DB_IMAGE:-postgres:17-alpine}
@@ -52,16 +53,18 @@ services:
       - public_net
       - twenty_net
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/healthz || wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/ || exit 1"]
+      test:
+        - "CMD-SHELL"
+        - "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/healthz || wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/
+          || exit 1"
       interval: 15s
       timeout: 5s
       retries: 5
 
 volumes:
-  twenty_db_data:
-  twenty_storage:
-  twenty_valkey_data:
-
+  twenty_db_data: {}
+  twenty_storage: {}
+  twenty_valkey_data: {}
 networks:
   public_net:
     external: true

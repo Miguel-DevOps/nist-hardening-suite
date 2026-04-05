@@ -1,3 +1,4 @@
+---
 services:
   uptime-kuma:
     image: ${UPTIME_KUMA_IMAGE:-louislam/uptime-kuma:2.0.2}
@@ -12,7 +13,9 @@ services:
     networks:
       - public_net
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://127.0.0.1:3001/ || wget --no-verbose --tries=1 --spider http://127.0.0.1:3001/ || exit 1"]
+      test:
+        - "CMD-SHELL"
+        - "curl -f http://127.0.0.1:3001/ || wget --no-verbose --tries=1 --spider http://127.0.0.1:3001/ || exit 1"
       interval: 15s
       timeout: 5s
       retries: 5
