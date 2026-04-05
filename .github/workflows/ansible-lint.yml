@@ -70,25 +70,25 @@ jobs:
           script: |
             const fs = require('fs');
             let body = '## 🔍 Code Quality Report\n\n';
-            
+
             body += '### Ansible Lint\n';
             if ('${{ steps.ansible-lint.outcome }}' === 'success') {
               body += '✅ All playbooks passed linting\n\n';
             } else {
               body += '⚠️ Ansible Lint issues detected (see logs)\n\n';
             }
-            
+
             body += '### YAML Validation\n';
             if ('${{ steps.yamllint.outcome }}' === 'success') {
               body += '✅ All YAML files valid\n\n';
             } else {
               body += '⚠️ YAML validation warnings (see logs)\n\n';
             }
-            
+
             body += '**Security Note:** This project enforces NIST 800-53 compliance\n';
             body += '- All code changes are subject to security audit\n';
             body += '- See [CONTRIBUTING.md](docs/project/CONTRIBUTING.md) for guidelines\n';
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
