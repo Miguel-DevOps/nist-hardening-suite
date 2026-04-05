@@ -1,5 +1,44 @@
 # Changelog
 
+## [5.0.2] - 2026-04-04
+
+### Refactor
+
+- **Runtime normalization across Ansible roles and inventory model**: standardized task/module style, inventory/runtime config consistency, and role-level structure refinements across core security, observability, ingress, Portainer, Docker, and tailscale workflows.
+
+### Chore
+
+- **Recommended app artifacts normalized**: refreshed `recommended_apps/*` compose templates and `.env.example` consistency for Chatwoot, n8n, Twenty CRM, and Uptime Kuma.
+- **Documentation/governance alignment update**: refreshed architecture, compliance, contributing, release, roadmap, and README references to match latest repository behavior.
+
+## [5.0.1] - 2026-04-04
+
+### Chore
+
+- **Git ignore hardening for local JS package managers**: added `.pnpm/` and `node_modules/` to `.gitignore` to prevent local artifact leakage into commits.
+
+## [5.0.0] - 2026-04-04
+
+### Breaking Changes
+
+- **Toolchain contract updated**: dependency and hook stack moved to the new baseline with updated Ansible ecosystem pins and pnpm-based Prettier execution policy.
+- **Collection major upgrades**: updated `community.general` (`8.x` -> `12.x`) and `ansible.posix` (`1.x` -> `2.x`) along with related collection/runtime updates, requiring validation in existing operator environments.
+
+### Tooling
+
+- **pre-commit modernization**: updated hook sources/versions, moved shellcheck hook source, and switched markdown formatting to local pnpm execution.
+- **Core Python deps refreshed**: updated `ansible-core`, `ansible-lint`, lockfile, and related project dependency metadata.
+
+## [4.3.1] - 2026-04-04
+
+### Fixes
+
+- **Vault prompt ergonomics in Make deploy paths**: deploy-oriented Make targets now include Vault prompt behavior by default to avoid decrypt failures when encrypted runtime variables are present.
+
+### Documentation
+
+- **Commands runbook aligned to Make runtime behavior**: deployment examples and operator guidance were synchronized with current Make execution defaults.
+
 ## [4.3.0] - 2026-04-01
 
 ### Fixes

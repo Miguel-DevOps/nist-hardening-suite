@@ -27,7 +27,7 @@
 >
 > **Business Model:** The hardening script is free (MIT licensed). I charge a monthly retainer for continuous monitoring via CrowdSec, ensuring your infrastructure stays compliant.
 >
-> **Current Release:** `v4.3.0` (APT reliability hardening across roles, Make-based operations interface, CrowdSec monitor robustness, bootstrap safety improvements, and documentation consolidation)
+> **Current Release:** `v5.0.2` (post-toolchain-major stabilization with runtime normalization, app template refresh, and documentation/governance alignment)
 
 ---
 
@@ -55,8 +55,9 @@ Use **[COMMANDS.md](docs/operations/COMMANDS.md)** as the single source of truth
 
 - Python 3.14+
 - `uv` for reproducible local tooling
-- Ansible Core 2.19+
+- Ansible Core 2.20+
 - `ansible-vault` for secret management
+- `pnpm` for markdown formatting hooks (Prettier policy: no npm)
 - SSH access to target servers
 
 ### 1. Clone & Setup

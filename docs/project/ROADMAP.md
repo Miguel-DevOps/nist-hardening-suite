@@ -23,9 +23,13 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 | `v4.1.0` | 2026-03-15 | tag on `2e7fc8b`               | Caddyfile optional-app integration mode examples and roadmap alignment updates                                                        |
 | `v4.1.1` | 2026-03-16 | tag on `12cec68`               | Patch: detect-secrets baseline repair and tag-driven security audit workflow parity                                                   |
 | `v4.2.0` | 2026-03-30 | tag on `8bf5ea1`               | Feature: Added secure deployment configs for Chatwoot, n8n, Twenty CRM, and Uptime Kuma; enhanced hardening and pinned dependencies   |
-| `v4.3.0` | 2026-04-01 | tag on `68bac30` (current tag) | Reliability hardening across roles, Make-based operations interface, CrowdSec monitor robustness, and bootstrap safety improvements   |
+| `v4.3.0` | 2026-04-01 | tag on `68bac30`               | Reliability hardening across roles, Make-based operations interface, CrowdSec monitor robustness, and bootstrap safety improvements   |
+| `v4.3.1` | 2026-04-04 | tag on `7dc543f`               | Patch: Vault prompt ergonomics in Make deployment paths and runbook parity updates                                                    |
+| `v5.0.0` | 2026-04-04 | tag on `398de28`               | Breaking: Toolchain contract update, major collection upgrades, and pnpm-based pre-commit formatting policy                           |
+| `v5.0.1` | 2026-04-04 | tag on `8ae5996`               | Patch: Git ignore hardening for `.pnpm/` and `node_modules/`                                                                          |
+| `v5.0.2` | 2026-04-04 | tag on `4f11446` (current tag) | Runtime normalization across Ansible roles/inventory, app compose normalization, and documentation governance refresh                 |
 
-### What Is Working Well in Current Working Tree (v4.3.0)
+### What Is Working Well in Current Working Tree (v5.0.2)
 
 - NIST-focused architecture remains consistent (`AC-2`, `CM-7`, `SC-7`, `SI-4`, `AU-12`, `SC-28` audit scope).
 - Security stack is cohesive: SSH hardening, UFW/fail2ban, CrowdSec, Tailscale, Vault workflow.
@@ -34,7 +38,7 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 - Recommended app catalog now provides secure, Zero Trust-aligned deployment configurations for Chatwoot, n8n, Twenty CRM, and Uptime Kuma.
 - Caddy WAF v2 is pinned, runtime-hardened, and ships annotated integration mode examples for optional app exposure patterns.
 - System security configurations and compliance guidance are reinforced across multiple roles, with strict dependency pinning ensuring reproducible builds.
-- Tooling modernization is in place with `uv` and Python `3.14`, including refreshed core pins (`ansible-core 2.20.4`, `ansible-lint 26.4.0`, `yamllint 1.38.0`).
+- Tooling modernization is in place with `uv` and Python `3.14`, including refreshed core pins (`ansible-core 2.20.4`, `ansible-lint 26.4.0`, `yamllint 1.38.0`) and pnpm-based markdown formatting policy in hooks.
 
 ### Improvement Focus (Without Overstating Risk)
 
@@ -71,7 +75,7 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 
 ### Planned Release Target
 
-- `v4.3.1` - Operational hardening and documentation parity.
+- `v5.0.3` - Operational hardening and documentation parity follow-up.
 
 ## U1 - High (30-60 days)
 
@@ -97,7 +101,7 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 
 ### Planned Release Target
 
-- `v4.4.0` - Compliance evidence and operability consistency.
+- `v5.1.0` - Compliance evidence and operability consistency.
 
 ## U2 - Strategic (60-120 days)
 
@@ -115,7 +119,7 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 
 ### Planned Release Target
 
-- `v5.0.0` - Policy and scale maturity.
+- `v6.0.0` - Policy and scale maturity.
 
 ## Future Implementations (Backlog)
 
