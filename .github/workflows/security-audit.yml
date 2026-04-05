@@ -4,11 +4,11 @@ on:
   push:
     tags:
       - "v*"
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 permissions:
   contents: read
- 
+
 concurrency:
   group: security-audit-${{ github.ref }}
   cancel-in-progress: false

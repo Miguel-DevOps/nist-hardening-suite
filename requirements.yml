@@ -3,13 +3,13 @@
 
 collections:
   - name: community.general
-    version: "8.3.0"
+    version: "12.5.0"
   - name: community.sops
-    version: "1.6.7"
+    version: "1.9.6"
   - name: ansible.posix
-    version: "1.5.4"
+    version: "2.1.0"
   - name: community.docker
-    version: "5.0.6"
+    version: "5.1.0"
 
   # To install:
   #   ansible-galaxy collection install -r requirements.yml

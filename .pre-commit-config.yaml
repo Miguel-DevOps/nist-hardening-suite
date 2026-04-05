@@ -1,3 +1,4 @@
+---
 repos:
   # Detect secrets (API keys, passwords, tokens) - CRITICAL for security
   - repo: https://github.com/Yelp/detect-secrets
@@ -14,12 +15,12 @@ repos:
 
   # Pre-commit standard file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
-        args: ["--unsafe"]  # Allow Jinja2 templates
+        args: ["--unsafe"] # Allow Jinja2 templates
       - id: check-added-large-files
         args: ["--maxkb=1000"]
       - id: check-merge-conflict
@@ -29,15 +30,16 @@ repos:
 
   # Ansible-lint for playbook best practices
   - repo: https://github.com/ansible/ansible-lint
-    rev: v6.22.2
+    rev: v26.4.0
     hooks:
       - id: ansible-lint
         files: ^(site|stacks|monitoring|nuke)\.yml$|^roles/.*\.yml$|^group_vars/.*\.yml$
-        args: [--fix]
+        additional_dependencies:
+          - ansible-core==2.20.4
 
   # YAML validation with strict rules
   - repo: https://github.com/adrienverge/yamllint
-    rev: v1.35.1
+    rev: v1.38.0
     hooks:
       - id: yamllint
         args: [--strict, --format, colored]
@@ -48,18 +50,20 @@ repos:
           )$
 
   # Shell script validation
-  - repo: https://github.com/jumanjihouse/pre-commit-hooks
-    rev: 3.0.0
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
     hooks:
       - id: shellcheck
         args: [--severity=warning]
         exclude: ^roles/.*/templates/
 
-  # Markdown formatting
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v3.1.0
+  # Markdown formatting (policy: pnpm only, no npm)
+  - repo: local
     hooks:
-      - id: prettier
+      - id: prettier-pnpm
+        name: prettier (pnpm)
+        entry: pnpm dlx prettier@3.8.1 --write
+        language: system
         types: [markdown]
 
 ci:
@@ -69,4 +73,4 @@ ci:
     Fixes applied automatically for security and style.
   autofix_prs: true
   autoupdate_schedule: weekly
-  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_commit_msg: "[pre-commit.ci] pre-commit autoupdate"

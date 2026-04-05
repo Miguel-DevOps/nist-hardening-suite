@@ -2,9 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches:
+      - main
+      - develop
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   lint-and-validate:
@@ -45,7 +48,7 @@ jobs:
       - name: Scan for exposed secrets
         run: |
           pip install detect-secrets
-          
+
           echo "🔍 Scanning for secrets with detect-secrets..."
           detect-secrets scan \
             --baseline .secrets.baseline \
@@ -53,7 +56,7 @@ jobs:
             --exclude-files group_vars/.*\.yml \
             --all-files \
             2>&1 | tee detect-secrets-output.txt
-          
+
           if grep -q "\"results\": {}" detect-secrets-output.txt; then
             echo "✅ No new secrets detected"
           else
@@ -118,4 +121,3 @@ jobs:
             -i inventory/hosts.ini \
             site.yml stacks.yml monitoring.yml nuke.yml
           echo "✅ Convergence test passed"
-
