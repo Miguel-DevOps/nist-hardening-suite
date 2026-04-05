@@ -31,7 +31,6 @@
   gather_facts: true
   become: false
   tags: [always]
-
   tasks:
     - name: Validate vault variables
       ansible.builtin.assert:
@@ -54,10 +53,9 @@
   gather_facts: true
   max_fail_percentage: 0
   tags: [base, system, packages]
-
   pre_tasks:
     - name: "Bootstrap: Use public IP (Tailscale not yet configured)"
-      set_fact:
+      ansible.builtin.set_fact:
         ansible_host: "{{ public_ip }}"
       when:
         - public_ip is defined
@@ -77,10 +75,9 @@
   any_errors_fatal: true
   max_fail_percentage: 0
   tags: [security, firewall, ssh, fail2ban]
-
   pre_tasks:
     - name: "Bootstrap: Use public IP (Tailscale not yet configured)"
-      set_fact:
+      ansible.builtin.set_fact:
         ansible_host: "{{ public_ip }}"
       when:
         - public_ip is defined
@@ -100,10 +97,9 @@
   any_errors_fatal: true
   max_fail_percentage: 0
   tags: [security, crowdsec, ips, si-4]
-
   pre_tasks:
     - name: "Bootstrap: Use public IP (Tailscale not yet configured)"
-      set_fact:
+      ansible.builtin.set_fact:
         ansible_host: "{{ public_ip }}"
       when:
         - public_ip is defined
@@ -123,10 +119,9 @@
   any_errors_fatal: true
   max_fail_percentage: 0
   tags: [vpn, tailscale, networking]
-
   pre_tasks:
     - name: "Bootstrap: Use public IP (Tailscale not yet configured)"
-      set_fact:
+      ansible.builtin.set_fact:
         ansible_host: "{{ public_ip }}"
       when:
         - public_ip is defined
@@ -146,10 +141,9 @@
   any_errors_fatal: true
   max_fail_percentage: 0
   tags: [docker, containers, runtime]
-
   pre_tasks:
     - name: "Bootstrap: Use public IP (Tailscale not yet configured)"
-      set_fact:
+      ansible.builtin.set_fact:
         ansible_host: "{{ public_ip }}"
       when:
         - public_ip is defined
@@ -167,10 +161,9 @@
   gather_facts: false
   become: true
   tags: [verification, status]
-
   pre_tasks:
     - name: "Bootstrap: Use public IP (Tailscale not yet configured)"
-      set_fact:
+      ansible.builtin.set_fact:
         ansible_host: "{{ public_ip }}"
       when:
         - public_ip is defined
@@ -208,7 +201,6 @@
   gather_facts: false
   become: false
   tags: [always]
-
   tasks:
     - name: Display next steps
       ansible.builtin.debug:

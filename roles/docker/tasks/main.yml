@@ -22,7 +22,8 @@
     fail_msg: |
       docker_version_map must be defined in group_vars/all/secrets.yml
       Current OS: {{ ansible_facts['distribution'] }} {{ ansible_facts['distribution_release'] }}
-    success_msg: "Docker version: {{ docker_version_map[ansible_facts['distribution']][ansible_facts['distribution_release']] }}"
+    success_msg: "Docker version: {{ docker_version_map[ansible_facts['distribution']][ansible_facts['distribution_release']]
+      }}"
 
 - name: Display Docker version to be installed
   ansible.builtin.debug:
@@ -56,13 +57,13 @@
   ansible.builtin.file:
     path: /etc/apt/keyrings
     state: directory
-    mode: '0755'
+    mode: "0755"
 
 - name: Add Docker GPG key
   ansible.builtin.get_url:
     url: "https://download.docker.com/linux/{{ ansible_facts['distribution'] | lower }}/gpg"
     dest: /etc/apt/keyrings/docker.asc
-    mode: '0644'
+    mode: "0644"
 
 - name: Get dpkg architecture
   ansible.builtin.command: dpkg --print-architecture
@@ -71,7 +72,8 @@
 
 - name: Add Docker repository (Multi-arch auto-detection)
   ansible.builtin.apt_repository:
-    repo: "deb [arch={{ dpkg_arch.stdout }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/{{ ansible_facts['distribution'] | lower }} {{ ansible_facts['distribution_release'] }} stable"
+    repo: "deb [arch={{ dpkg_arch.stdout }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/{{ ansible_facts['distribution']
+      | lower }} {{ ansible_facts['distribution_release'] }} stable"
     state: present
     filename: docker
     update_cache: false
@@ -112,7 +114,7 @@
   ansible.builtin.template:
     src: daemon.json.j2
     dest: /etc/docker/daemon.json
-    mode: '0644'
+    mode: "0644"
   notify: Restart Docker
 
 - name: Create Docker garbage collection cron job

@@ -34,7 +34,7 @@ require_uv() {
 print_status() {
     local status=$1
     local message=$2
-    
+
     case "$status" in
         "OK")
             echo -e "${GREEN}✅ ${message}${NC}"
@@ -83,10 +83,10 @@ check_alerts() {
             | uv run python -c 'import json,sys; data=json.load(sys.stdin); print(len(data))' 2>/dev/null \
             || echo "0"
     )
-    
+
     if [[ "$alerts_count" -gt 0 ]]; then
         print_status "WARNING" "Found $alerts_count active security alert(s)"
-        
+
         if [[ "${SHOW_ALERTS:-false}" == "true" ]]; then
             echo -e "\n${YELLOW}Recent alerts:${NC}"
             "$CSCLI_PATH" alerts list --since "${MAX_ALERTS_AGE_HOURS}h"
@@ -99,7 +99,7 @@ check_alerts() {
 check_bouncer() {
     local bouncers
     bouncers=$($CSCLI_PATH bouncers list 2>/dev/null | grep -c "firewall-bouncer" || echo "0")
-    
+
     if [[ "$bouncers" -gt 0 ]]; then
         print_status "OK" "Firewall bouncer is registered"
     else
@@ -110,7 +110,7 @@ check_bouncer() {
 check_collections() {
     local collections
     collections=$($CSCLI_PATH collections list 2>/dev/null | grep -c "crowdsecurity/linux" || echo "0")
-    
+
     if [[ "$collections" -gt 0 ]]; then
         print_status "OK" "Security collections installed"
     else
@@ -125,7 +125,7 @@ check_decisions() {
             | uv run python -c 'import json,sys; data=json.load(sys.stdin); print(len(data))' 2>/dev/null \
             || echo "0"
     )
-    
+
     if [[ "$decisions_count" -gt 0 ]]; then
         print_status "INFO" "Active decisions: $decisions_count (blocked IPs)"
     else
@@ -146,7 +146,7 @@ check_logs() {
     if [[ -f "$LOG_FILE" ]]; then
         local recent_errors
         recent_errors=$(grep -cE 'error|ERROR' "$LOG_FILE" 2>/dev/null || echo "0")
-        
+
         if [[ "$recent_errors" -gt 0 ]]; then
             print_status "WARNING" "Found $recent_errors error(s) in recent logs"
         else
@@ -165,7 +165,7 @@ generate_report() {
     echo "Host: $(hostname)"
     echo "IP: $(hostname -I 2>/dev/null | head -1 || echo 'N/A')"
     echo ""
-    
+
     if check_cscli; then
         cscli_ready=1
     else
@@ -226,7 +226,7 @@ main() {
     if ! require_uv; then
         exit 1
     fi
-    
+
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -258,7 +258,7 @@ main() {
         esac
         shift
     done
-    
+
     case "$mode" in
         "report")
             if ! generate_report; then
@@ -272,7 +272,7 @@ main() {
             fi
             ;;
     esac
-    
+
     echo -e "\n${BLUE}=== Monitoring Complete ===${NC}"
     echo "Monitoring complete. Refer to project documentation for extended monitoring options."
     exit "$exit_code"

@@ -48,7 +48,8 @@
 
 - name: SI-4 | Add CrowdSec repository (Ubuntu)
   ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/crowdsec.asc] https://packagecloud.io/crowdsec/crowdsec/ubuntu/ {{ ansible_facts['distribution_release'] }} main"
+    repo: "deb [signed-by=/etc/apt/keyrings/crowdsec.asc] https://packagecloud.io/crowdsec/crowdsec/ubuntu/ {{ ansible_facts['distribution_release']
+      }} main"
     state: present
     filename: crowdsec
     update_cache: false
@@ -57,7 +58,8 @@
 
 - name: SI-4 | Add CrowdSec repository (Debian)
   ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/crowdsec.asc] https://packagecloud.io/crowdsec/crowdsec/debian/ {{ ansible_facts['distribution_release'] }} main"
+    repo: "deb [signed-by=/etc/apt/keyrings/crowdsec.asc] https://packagecloud.io/crowdsec/crowdsec/debian/ {{ ansible_facts['distribution_release']
+      }} main"
     state: present
     filename: crowdsec
     update_cache: false
@@ -99,7 +101,7 @@
         server:
           listen_uri: 127.0.0.1:8080
           profiles_path: /etc/crowdsec/profiles.yaml
-    mode: '0640'
+    mode: "0640"
   notify: Restart CrowdSec
   tags: [crowdsec, nist, si-4]
 
@@ -120,7 +122,7 @@
         - /var/log/caddy/*.log
       labels:
         type: caddy
-    mode: '0640'
+    mode: "0640"
   notify: Restart CrowdSec
   tags: [crowdsec, nist, si-4]
 
@@ -176,6 +178,8 @@
   tags: [crowdsec, nist, si-4, au-12]
 
 - name: SI-4 | Configure hybrid signal sharing (optional - requires console API key)
+  when: crowdsec_console_key is defined
+  tags: [crowdsec, nist, si-4]
   block:
     - name: Check if CrowdSec console key is provided
       ansible.builtin.assert:
@@ -188,8 +192,6 @@
         creates: "/etc/crowdsec/online_api_credentials.yaml"
       no_log: true
       notify: Restart CrowdSec
-  when: crowdsec_console_key is defined
-  tags: [crowdsec, nist, si-4]
 
 - name: SI-4 | Verify CrowdSec installation
   ansible.builtin.command: cscli version
@@ -212,7 +214,7 @@
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/scripts/monitor-crowdsec.sh"
     dest: /usr/local/bin/monitor-crowdsec
-    mode: '0755'
+    mode: "0755"
     owner: root
     group: root
   tags: [crowdsec, nist, si-4, monitoring]

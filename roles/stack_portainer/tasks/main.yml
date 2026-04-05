@@ -6,9 +6,9 @@
 ---
 - name: Ensure public_net Docker network exists
   community.docker.docker_network:
-      name: public_net
-      driver: bridge
-      state: present
+    name: public_net
+    driver: bridge
+    state: present
 
 - name: Ensure Portainer data volume exists (Brain only)
   community.docker.docker_volume:
@@ -17,7 +17,7 @@
   when: "'brain' in group_names"
 
 - name: Get Tailscale IP address
-  ansible.builtin.shell: tailscale ip -4
+  ansible.builtin.command: tailscale ip -4
   register: tailscale_ip_result
   changed_when: false
   failed_when: tailscale_ip_result.rc != 0
@@ -84,7 +84,8 @@
     that:
       - portainer_edge_id_resolved is defined
       - portainer_edge_id_resolved | length > 0
-    fail_msg: "Portainer Edge ID is required and could not be resolved. Define portainer_edge_id in vaulted vars (or rely on machine_id fallback)."
+    fail_msg: "Portainer Edge ID is required and could not be resolved. Define portainer_edge_id in vaulted vars (or rely
+      on machine_id fallback)."
   when:
     - "'brain' in group_names or 'muscle' in group_names"
     - portainer_edge_key_resolved | length > 0
@@ -107,7 +108,7 @@
     state: directory
     owner: "{{ portainer_tls_owner_uid | default('0') }}"
     group: "{{ portainer_tls_owner_gid | default('0') }}"
-    mode: '0750'
+    mode: "0750"
   when: "'brain' in group_names"
 
 - name: Detect remapped UID for Docker userns (Brain only)
@@ -126,8 +127,10 @@
 
 - name: Resolve TLS file owner for Portainer container access (Brain only)
   ansible.builtin.set_fact:
-    portainer_tls_owner_uid: "{{ (docker_subuid_dockremap.stdout | trim) if (docker_subuid_dockremap.stdout | default('') | trim | length > 0) else '0' }}"
-    portainer_tls_owner_gid: "{{ (docker_subgid_dockremap.stdout | trim) if (docker_subgid_dockremap.stdout | default('') | trim | length > 0) else '0' }}"
+    portainer_tls_owner_uid: "{{ (docker_subuid_dockremap.stdout | trim) if (docker_subuid_dockremap.stdout | default('')
+      | trim | length > 0) else '0' }}"
+    portainer_tls_owner_gid: "{{ (docker_subgid_dockremap.stdout | trim) if (docker_subgid_dockremap.stdout | default('')
+      | trim | length > 0) else '0' }}"
   when: "'brain' in group_names"
 
 - name: Ensure Portainer TLS directory ownership for userns-remap (Brain only)
@@ -135,7 +138,7 @@
     path: "{{ app_base_dir }}/portainer_certs"
     owner: "{{ portainer_tls_owner_uid | default('0') }}"
     group: "{{ portainer_tls_owner_gid | default('0') }}"
-    mode: '0750'
+    mode: "0750"
     state: directory
   when: "'brain' in group_names"
 
@@ -148,7 +151,8 @@
             'IP:' ~ tailscale_ip,
             'DNS:' ~ inventory_hostname
           ]
-          + ([('IP:' ~ hostvars[inventory_hostname]["ansible_host"]) ] if (hostvars[inventory_hostname]["ansible_host"] is defined and (hostvars[inventory_hostname]["ansible_host"] | regex_search('^\\d+\\.\\d+\\.\\d+\\.\\d+$'))) else [])
+          + ([('IP:' ~ hostvars[inventory_hostname]["ansible_host"]) ] if (hostvars[inventory_hostname]["ansible_host"] is
+      defined and (hostvars[inventory_hostname]["ansible_host"] | regex_search('^\\d+\\.\\d+\\.\\d+\\.\\d+$'))) else [])
         ) | unique
       }}
   when: "'brain' in group_names"
@@ -170,7 +174,7 @@
     path: "{{ app_base_dir }}/portainer_certs/portainer.key"
     owner: "{{ portainer_tls_owner_uid | default('0') }}"
     group: "{{ portainer_tls_owner_gid | default('0') }}"
-    mode: '0640'
+    mode: "0640"
   when: "'brain' in group_names"
 
 - name: Ensure Portainer TLS certificate permissions (Brain only)
@@ -178,7 +182,7 @@
     path: "{{ app_base_dir }}/portainer_certs/portainer.crt"
     owner: "{{ portainer_tls_owner_uid | default('0') }}"
     group: "{{ portainer_tls_owner_gid | default('0') }}"
-    mode: '0644'
+    mode: "0644"
   when: "'brain' in group_names"
 
 - name: Read Portainer TLS certificate for Edge trust distribution (Brain only)
@@ -191,7 +195,7 @@
   ansible.builtin.template:
     src: portainer-server.yml.j2
     dest: "{{ app_base_dir }}/portainer-server-compose.yml"
-    mode: '0640'
+    mode: "0640"
   when: "'brain' in group_names"
 
 - name: Deploy Portainer Server Stack
@@ -210,7 +214,7 @@
   ansible.builtin.file:
     path: "{{ app_base_dir }}/portainer_agent"
     state: directory
-    mode: '0755'
+    mode: "0755"
   when:
     - "'brain' in group_names or 'muscle' in group_names"
     - portainer_edge_key_resolved | length > 0
@@ -219,9 +223,9 @@
   ansible.builtin.file:
     path: "{{ app_base_dir }}/portainer_agent_data"
     state: directory
-    owner: '65534'
-    group: '65534'
-    mode: '0750'
+    owner: "65534"
+    group: "65534"
+    mode: "0750"
   when:
     - "'brain' in group_names or 'muscle' in group_names"
     - portainer_edge_key_resolved | length > 0
@@ -232,7 +236,7 @@
     state: directory
     owner: root
     group: root
-    mode: '0755'
+    mode: "0755"
   when:
     - "'brain' in group_names or 'muscle' in group_names"
     - portainer_edge_key_resolved | length > 0
@@ -243,7 +247,7 @@
     content: "{{ hostvars[portainer_edge_target_brain_resolved].portainer_tls_cert_slurp.content | b64decode }}"
     owner: root
     group: root
-    mode: '0644'
+    mode: "0644"
   when:
     - "'brain' in group_names or 'muscle' in group_names"
     - portainer_edge_key_resolved | length > 0
@@ -279,7 +283,7 @@
   ansible.builtin.template:
     src: portainer-edge-agent.yml.j2
     dest: "{{ app_base_dir }}/portainer_agent/docker-compose.yml"
-    mode: '0640'
+    mode: "0640"
   no_log: true
   when:
     - "'brain' in group_names or 'muscle' in group_names"
@@ -296,7 +300,8 @@
 
 - name: Verify EDGE_INSECURE_POLL is effectively applied (self-signed mode)
   ansible.builtin.shell: >-
-    docker inspect portainer_edge_agent --format '{{ '{{' }}range .Config.Env{{ '}}' }}{{ '{{' }}println .{{ '}}' }}{{ '{{' }}end{{ '}}' }}' |
+    docker inspect portainer_edge_agent --format '{{ '{{' }}range .Config.Env{{ '}}' }}{{ '{{' }}println .{{ '}}' }}{{ '{{'
+    }}end{{ '}}' }}' |
     grep -qx 'EDGE_INSECURE_POLL=1'
   changed_when: false
   when:

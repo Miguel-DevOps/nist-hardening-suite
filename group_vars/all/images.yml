@@ -1,3 +1,4 @@
+---
 # -----------------------------------------------------------------------------
 # NON-SECRET IMAGE PINNING & DEPLOYMENT DEFAULTS
 # -----------------------------------------------------------------------------
@@ -18,7 +19,7 @@ caddy_image: "{{ image_namespace }}/caddy-waf:v2.0.0"
 # -----------------------------------------------------------------------------
 # GITHUB CONTAINER REGISTRY
 # -----------------------------------------------------------------------------
-github_username: "MiguelDevOps"  # Username for private pulls in GHCR
+github_username: "MiguelDevOps" # Username for private pulls in GHCR
 
 # -----------------------------------------------------------------------------
 # PORTAINER MANAGEMENT STACK
@@ -37,7 +38,7 @@ timezone: "UTC"
 # -----------------------------------------------------------------------------
 # FILESYSTEM PATHS (Standardized)
 # -----------------------------------------------------------------------------
-app_base_dir: "/srv/app"  # Base path for container apps
+app_base_dir: "/srv/app" # Base path for container apps
 
 # -----------------------------------------------------------------------------
 # RUNTIME PACKAGE PINNING
@@ -65,13 +66,13 @@ caddy_user_gid: 1337
 # -----------------------------------------------------------------------------
 # NETWORK CONFIGURATION (Tailscale Zero Trust)
 # -----------------------------------------------------------------------------
-tailscale_mtu: 1280  # MTU for Tailscale
-tailscale_metrics_port: 5252  # Tailscale metrics port
+tailscale_mtu: 1280 # MTU for Tailscale
+tailscale_metrics_port: 5252 # Tailscale metrics port
 
 # -----------------------------------------------------------------------------
 # ANSIBLE RUNTIME
 # -----------------------------------------------------------------------------
-ansible_python_interpreter: /usr/bin/python3  # Python interpreter for Ansible
+ansible_python_interpreter: /usr/bin/python3 # Python interpreter for Ansible
 
 # -----------------------------------------------------------------------------
 # OBSERVABILITY

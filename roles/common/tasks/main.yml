@@ -44,7 +44,7 @@
 - name: Configure timezone in /etc/environment
   ansible.builtin.lineinfile:
     path: /etc/environment
-    line: 'TZ=Etc/UTC'
+    line: "TZ=Etc/UTC"
     create: true
     mode: "{{ file_mode_default }}"
     state: present
@@ -66,7 +66,7 @@
 - name: Remove swap entries from /etc/fstab
   ansible.builtin.lineinfile:
     path: /etc/fstab
-    regexp: '^\s*[^#].*\sswap\s'
+    regexp: "^\\s*[^#].*\\sswap\\s"
     state: absent
   when: ansible_facts['swaptotal_mb'] > 0
 
@@ -77,15 +77,15 @@
 
 - name: Configure system limits for applications
   community.general.pam_limits:
-    domain: '*'
+    domain: "*"
     limit_type: "{{ item.type }}"
     limit_item: "{{ item.item }}"
     value: "{{ item.value }}"
   loop:
-    - { type: 'soft', item: 'nofile', value: "{{ systemd_nofile_soft }}" }
-    - { type: 'hard', item: 'nofile', value: "{{ systemd_nofile_hard }}" }
-    - { type: 'soft', item: 'nproc', value: "{{ systemd_nproc_soft }}" }
-    - { type: 'hard', item: 'nproc', value: "{{ systemd_nproc_hard }}" }
+    - { type: "soft", item: "nofile", value: "{{ systemd_nofile_soft }}" }
+    - { type: "hard", item: "nofile", value: "{{ systemd_nofile_hard }}" }
+    - { type: "soft", item: "nproc", value: "{{ systemd_nproc_soft }}" }
+    - { type: "hard", item: "nproc", value: "{{ systemd_nproc_hard }}" }
 
 - name: Enable automatic security updates
   ansible.builtin.apt:

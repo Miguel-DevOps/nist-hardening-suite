@@ -102,7 +102,7 @@ sync_toolchain() {
 
 install_collections() {
     print_header "Installing Ansible Collections"
-    
+
     if [[ -f "requirements.yml" ]]; then
         uv run ansible-galaxy collection install -r requirements.yml
         print_success "Ansible collections installed"
@@ -114,10 +114,10 @@ install_collections() {
 
 validate_inventory() {
     print_header "Validating Inventory"
-    
+
     if [[ -f "inventory/hosts.ini" ]]; then
         print_success "inventory/hosts.ini exists"
-        
+
         # Check for placeholder IPs
         if grep -q "100\.100\.100\|203\.0\.113" inventory/hosts.ini; then
             print_warning "Inventory contains placeholder IP addresses"
@@ -132,18 +132,18 @@ validate_inventory() {
 
 setup_secrets() {
     print_header "Setting Up Encrypted Secrets"
-    
+
     if [[ -f "group_vars/all/secrets.yml" ]]; then
         print_success "secrets.yml already exists"
         print_info "To edit: uv run ansible-vault edit group_vars/all/secrets.yml"
         return 0
     fi
-    
+
     if [[ -f "group_vars/all/secrets.yml.example" ]]; then
         print_info "Copying example secrets file..."
         cp group_vars/all/secrets.yml.example group_vars/all/secrets.yml
         chmod 600 group_vars/all/secrets.yml
-        
+
         print_warning "Secrets file created but NOT encrypted"
         print_info "To encrypt: uv run ansible-vault encrypt group_vars/all/secrets.yml"
         print_info "Required secrets:"
@@ -159,7 +159,7 @@ setup_secrets() {
 
 validate_playbooks() {
     print_header "Validating Ansible Playbooks"
-    
+
     if [[ -f "site.yml" ]]; then
         uv run ansible-playbook site.yml --syntax-check
         print_success "site.yml syntax valid"
@@ -167,7 +167,7 @@ validate_playbooks() {
         print_error "site.yml not found"
         return 1
     fi
-    
+
     if [[ -f "stacks.yml" ]]; then
         uv run ansible-playbook stacks.yml --syntax-check
         print_success "stacks.yml syntax valid"
@@ -203,7 +203,7 @@ validate_secrets() {
 
 show_next_steps() {
     print_header "Next Steps"
-    
+
     echo -e "${GREEN}1.${NC} Edit inventory/hosts.ini with your server IPs"
     echo -e "${GREEN}2.${NC} Configure secrets:"
     echo -e "   ${BLUE}uv run ansible-vault edit group_vars/all/secrets.yml${NC}"
@@ -218,12 +218,12 @@ show_next_steps() {
 
 run_validation() {
     print_header "Running Complete Validation"
-    
+
     check_prerequisites
     validate_inventory
     validate_secrets
     validate_playbooks
-    
+
     print_success "Validation complete!"
     show_next_steps
 }
@@ -258,7 +258,7 @@ EOF
 # Main execution
 main() {
     local mode="validate"
-    
+
     # Parse arguments
     if [[ $# -gt 0 ]]; then
         case "$1" in
@@ -281,13 +281,13 @@ main() {
     fi
 
     enter_repo_root
-    
+
     print_header "NIST Hardening Suite Bootstrap"
     print_info "Mode: $mode"
     print_info "Repository: $REPO_NAME"
     print_info "Business Model: Open Source Code, Optional Monitoring Services"
     echo ""
-    
+
     case "$mode" in
         install)
             require_uv || exit 1
@@ -303,7 +303,7 @@ main() {
             run_validation
             ;;
     esac
-    
+
     echo -e "\n${GREEN}=== Bootstrap Complete ===${NC}"
 }
 

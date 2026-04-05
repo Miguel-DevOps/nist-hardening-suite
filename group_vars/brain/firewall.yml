@@ -16,7 +16,7 @@ firewall_allow_http: true
 firewall_allow_https: true
 
 # --- Docker Cluster ---
-firewall_allow_docker_ssh: true       # Allow containers to access SSH
+firewall_allow_docker_ssh: true # Allow containers to access SSH
 firewall_docker_network_range: "172.16.0.0/12"
 
 # --- Tailscale VPN ---

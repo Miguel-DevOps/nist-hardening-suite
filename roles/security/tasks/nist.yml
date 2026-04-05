@@ -39,9 +39,12 @@
 
 - name: CM-7 | Build actionable module lists
   ansible.builtin.set_fact:
-    nist_modules_loadable: "{{ nist_module_classification.stdout_lines | select('search', ':loadable$') | map('regex_replace', ':loadable$', '') | list }}"
-    nist_modules_builtin: "{{ nist_module_classification.stdout_lines | select('search', ':builtin$') | map('regex_replace', ':builtin$', '') | list }}"
-    nist_modules_missing: "{{ nist_module_classification.stdout_lines | select('search', ':missing$') | map('regex_replace', ':missing$', '') | list }}"
+    nist_modules_loadable: "{{ nist_module_classification.stdout_lines | select('search', ':loadable$') | map('regex_replace',
+      ':loadable$', '') | list }}"
+    nist_modules_builtin: "{{ nist_module_classification.stdout_lines | select('search', ':builtin$') | map('regex_replace',
+      ':builtin$', '') | list }}"
+    nist_modules_missing: "{{ nist_module_classification.stdout_lines | select('search', ':missing$') | map('regex_replace',
+      ':missing$', '') | list }}"
   tags: [nist, cm-7]
 
 - name: CM-7 | Blacklist unused filesystem kernel modules (loadable only)
@@ -56,7 +59,8 @@
 - name: CM-7 | Report builtin modules (cannot be unloaded)
   ansible.builtin.debug:
     msg: >-
-      CM-7 notice: These modules are builtin in the running kernel and cannot be unloaded via modprobe: {{ nist_modules_builtin | join(', ') }}.
+      CM-7 notice: These modules are builtin in the running kernel and cannot be unloaded via modprobe: {{ nist_modules_builtin
+      | join(', ') }}.
   when: nist_modules_builtin | length > 0
   tags: [nist, cm-7]
 
@@ -90,7 +94,8 @@
     - { name: net.ipv4.conf.all.rp_filter, value: "{{ net_ipv4_conf_all_rp_filter }}" }
     - { name: net.ipv4.conf.default.rp_filter, value: "{{ net_ipv4_conf_default_rp_filter }}" }
     - { name: net.ipv4.icmp_echo_ignore_broadcasts, value: "{{ net_ipv4_icmp_echo_ignore_broadcasts }}" }
-    - { name: net.ipv4.icmp_ignore_bogus_error_responses, value: "{{ net_ipv4_icmp_ignore_bogus_error_responses }}" }
+    - name: net.ipv4.icmp_ignore_bogus_error_responses
+      value: "{{ net_ipv4_icmp_ignore_bogus_error_responses }}"
     - { name: net.ipv4.conf.all.accept_redirects, value: "{{ net_ipv4_conf_all_accept_redirects }}" }
     - { name: net.ipv6.conf.all.accept_redirects, value: "{{ net_ipv6_conf_all_accept_redirects }}" }
     - { name: net.ipv4.conf.all.send_redirects, value: "{{ net_ipv4_conf_all_send_redirects }}" }

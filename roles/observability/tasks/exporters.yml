@@ -1,10 +1,17 @@
 ---
 - name: Gather Docker host info for exporters deployment
-  community.docker.docker_host_info:
+  community.docker.docker_host_info: {}
   register: observability_docker_info_exporters
   changed_when: false
   failed_when: false
-  tags: [observability, monitoring, exporters, node_exporter, cadvisor, observability_networks, observability_assets]
+  tags:
+    - observability
+    - monitoring
+    - exporters
+    - node_exporter
+    - cadvisor
+    - observability_networks
+    - observability_assets
 
 - name: Assert Docker is available for exporters deployment
   ansible.builtin.assert:
@@ -13,7 +20,14 @@
     fail_msg: >-
       Docker is not reachable on {{ inventory_hostname }}.
       Exporters deployment requires a running Docker daemon and API access.
-  tags: [observability, monitoring, exporters, node_exporter, cadvisor, observability_networks, observability_assets]
+  tags:
+    - observability
+    - monitoring
+    - exporters
+    - node_exporter
+    - cadvisor
+    - observability_networks
+    - observability_assets
 
 - name: Ensure observability Docker network exists
   community.docker.docker_network:
@@ -26,7 +40,7 @@
   ansible.builtin.file:
     path: "{{ app_base_dir }}/observability/exporters"
     state: directory
-    mode: '0755'
+    mode: "0755"
     owner: root
     group: root
   tags: [observability, monitoring, exporters, node_exporter, cadvisor, observability_assets]
@@ -35,7 +49,7 @@
   ansible.builtin.template:
     src: exporters-docker-compose.yml.j2
     dest: "{{ app_base_dir }}/observability/exporters/docker-compose.yml"
-    mode: '0644'
+    mode: "0644"
   tags: [observability, monitoring, exporters, node_exporter, cadvisor, observability_assets]
 
 - name: Deploy exporters stack

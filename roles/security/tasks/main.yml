@@ -21,7 +21,7 @@
     name:
       - ufw
       - fail2ban
-      - rsyslog  # CRITICAL: Debian "Minimal" needs this for text logs
+      - rsyslog # CRITICAL: Debian "Minimal" needs this for text logs
     state: present
     lock_timeout: 600
 
@@ -37,8 +37,8 @@
 - name: Configure SSH ClientAliveInterval (Heartbeat every 60s)
   ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config
-    regexp: '^#?ClientAliveInterval'
-    line: 'ClientAliveInterval 60'
+    regexp: "^#?ClientAliveInterval"
+    line: "ClientAliveInterval 60"
     state: present
   notify: Restart SSH
   tags: [nist, ac-2]
@@ -46,8 +46,8 @@
 - name: Configure SSH ClientAliveCountMax
   ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config
-    regexp: '^#?ClientAliveCountMax'
-    line: 'ClientAliveCountMax 3'
+    regexp: "^#?ClientAliveCountMax"
+    line: "ClientAliveCountMax 3"
     state: present
   notify: Restart SSH
   tags: [nist, ac-2]
@@ -55,8 +55,8 @@
 - name: Disable password authentication (Force SSH keys only)
   ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config
-    regexp: '^#?PasswordAuthentication'
-    line: 'PasswordAuthentication no'
+    regexp: "^#?PasswordAuthentication"
+    line: "PasswordAuthentication no"
     state: present
   notify: Restart SSH
   tags: [nist, ac-2]
@@ -64,8 +64,8 @@
 - name: Disable root login via password (Allow only with SSH key)
   ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config
-    regexp: '^#?PermitRootLogin'
-    line: 'PermitRootLogin prohibit-password'
+    regexp: "^#?PermitRootLogin"
+    line: "PermitRootLogin prohibit-password"
     state: present
   notify: Restart SSH
   tags: [nist, ac-2]
@@ -73,8 +73,8 @@
 - name: Disable empty passwords
   ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config
-    regexp: '^#?PermitEmptyPasswords'
-    line: 'PermitEmptyPasswords no'
+    regexp: "^#?PermitEmptyPasswords"
+    line: "PermitEmptyPasswords no"
     state: present
   notify: Restart SSH
   tags: [nist, ac-2]
@@ -82,7 +82,7 @@
 - name: Remove obsolete SSH Protocol directive (Protocol 2 is default)
   ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config
-    regexp: '^#?Protocol'
+    regexp: "^#?Protocol"
     state: absent
   notify: Restart SSH
   tags: [nist, ac-2]
@@ -125,7 +125,7 @@
       logpath = /var/log/auth.log
       mode = aggressive
       maxretry = 3
-    mode: '0644'
+    mode: "0644"
   notify: Restart fail2ban
   tags: [nist, ac-2]
 
@@ -163,7 +163,8 @@
   changed_when: false
   when: cloud_provider == 'oci'
 
-- block:
+- tags: [nist, sc-7]
+  block:
     - name: Save current iptables rules for failsafe (persistent backup)
       ansible.builtin.shell:
         cmd: |
@@ -182,7 +183,7 @@
       when: cloud_provider == 'oci'
 
     - name: Verify 'atd' service is active for Deadman Switch
-      ansible.builtin.service_facts:
+      ansible.builtin.service_facts: {}
       when: cloud_provider == 'oci'
 
     - name: Fail if 'atd' is not running
@@ -224,7 +225,7 @@
       changed_when: true
 
     - name: Remove user-defined iptables chains (IPv4)
-      ansible.builtin.shell: iptables -X
+      ansible.builtin.command: iptables -X
       when: iptables_rules.stdout != ""
       changed_when: false
 
@@ -254,7 +255,7 @@
       changed_when: true
 
     - name: Remove user-defined ip6tables chains (IPv6)
-      ansible.builtin.shell: ip6tables -X
+      ansible.builtin.command: ip6tables -X
       when: ip6tables_rules.stdout != ""
       changed_when: false
 
@@ -276,7 +277,7 @@
       ansible.builtin.file:
         path: /etc/iptables
         state: directory
-        mode: '0755'
+        mode: "0755"
       when: cloud_provider == 'oci'
 
     - name: Persist empty iptables rules (override OCI defaults)
@@ -296,7 +297,7 @@
         - oracle-cloud-agent
         - oracle-cloud-agent-updater
       when: cloud_provider == 'oci'
-      failed_when: false  # Los servicios pueden no existir en todas las imágenes OCI
+      failed_when: false # Los servicios pueden no existir en todas las imágenes OCI
 
     - name: Remove Oracle iptables script (if exists)
       ansible.builtin.file:
@@ -315,8 +316,6 @@
     - name: Notify admin about OCI killswitch failure
       ansible.builtin.debug:
         msg: "OCI killswitch failed, iptables rules restored from backup. Check UFW installation and SSH access."
-
-  tags: [nist, sc-7]
 
 # Deadman Switch: Cancelar tarea at si UFW arranca correctamente (solo OCI)
 - name: List scheduled at jobs (Deadman Switch)
@@ -367,7 +366,7 @@
 - name: Allow SSH Public TEMPORARY (During Bootstrap - Until Tailscale configured)
   community.general.ufw:
     rule: limit
-    port: '22'
+    port: "22"
     proto: tcp
   when: not ansible_host.startswith('100.')
   tags: [nist, sc-7]
@@ -375,7 +374,7 @@
 - name: Allow SSH Public TEMPORARY for legacy bootstrap compatibility
   community.general.ufw:
     rule: allow
-    port: '22'
+    port: "22"
     proto: tcp
   when: not ansible_host.startswith('100.')
   tags: [nist, sc-7]
@@ -383,7 +382,7 @@
 - name: SC-7 | Allow Caddy HTTP (TCP/80) on ingress nodes only
   community.general.ufw:
     rule: allow
-    port: '80'
+    port: "80"
     proto: tcp
   when: inventory_hostname in groups.get('brain', [])
   tags: [nist, sc-7]
@@ -391,7 +390,7 @@
 - name: SC-7 | Allow Caddy HTTPS (TCP/443) on ingress nodes only
   community.general.ufw:
     rule: allow
-    port: '443'
+    port: "443"
     proto: tcp
   when: inventory_hostname in groups.get('brain', [])
   tags: [nist, sc-7]
@@ -399,7 +398,7 @@
 - name: SC-7 | Allow Caddy HTTP/3 (UDP/443) on ingress nodes only
   community.general.ufw:
     rule: allow
-    port: '443'
+    port: "443"
     proto: udp
   when: inventory_hostname in groups.get('brain', [])
   tags: [nist, sc-7]
@@ -407,21 +406,21 @@
 - name: SC-7 | Explicitly deny Caddy admin API from network (TCP/2019)
   community.general.ufw:
     rule: deny
-    port: '2019'
+    port: "2019"
     proto: tcp
   tags: [nist, sc-7]
 
 - name: SC-7 | Explicitly deny Caddy health endpoint from network (TCP/2020)
   community.general.ufw:
     rule: deny
-    port: '2020'
+    port: "2020"
     proto: tcp
   tags: [nist, sc-7]
 
 - name: Allow SSH via Tailscale VPN (All Nodes)
   community.general.ufw:
     rule: allow
-    port: '22'
+    port: "22"
     proto: tcp
     from_ip: "{{ tailscale_subnet }}"
   tags: [nist, sc-7]
@@ -429,7 +428,7 @@
 - name: Allow Tailscale mesh traffic (UDP 41641)
   community.general.ufw:
     rule: allow
-    port: '41641'
+    port: "41641"
     proto: udp
   tags: [nist, sc-7]
 
@@ -442,7 +441,7 @@
 - name: Remove temporary SSH public rate-limited access (After Tailscale configured)
   community.general.ufw:
     rule: limit
-    port: '22'
+    port: "22"
     proto: tcp
     delete: true
   when: ansible_host.startswith('100.')
@@ -452,7 +451,7 @@
 - name: Remove temporary SSH public allow access (After Tailscale configured)
   community.general.ufw:
     rule: allow
-    port: '22'
+    port: "22"
     proto: tcp
     delete: true
   when: ansible_host.startswith('100.')
@@ -464,11 +463,8 @@
     state: enabled
     policy: deny
   tags: [nist, sc-7]
-
-
-
 - name: Check if Docker service exists (Brain & Muscle)
-  ansible.builtin.service_facts:
+  ansible.builtin.service_facts: {}
   when: cloud_provider in ['hetzner', 'oci']
   tags: [docker]
 
@@ -485,7 +481,7 @@
 - name: Enable packet forwarding in UFW (CRITICAL for Docker + Tailscale)
   ansible.builtin.lineinfile:
     path: /etc/default/ufw
-    regexp: '^DEFAULT_FORWARD_POLICY='
+    regexp: "^DEFAULT_FORWARD_POLICY="
     line: 'DEFAULT_FORWARD_POLICY="ACCEPT"'
   notify: Reload UFW
   tags: [nist, sc-7]
@@ -493,7 +489,7 @@
 - name: Configure IPv6 policy in UFW
   ansible.builtin.lineinfile:
     path: /etc/default/ufw
-    regexp: '^IPV6='
+    regexp: "^IPV6="
     line: 'IPV6={{ "yes" if (ufw_enable_ipv6 | bool) else "no" }}'
     state: present
   notify: Reload UFW
@@ -502,7 +498,7 @@
 - name: Allow Node Exporter metrics via Tailscale
   community.general.ufw:
     rule: allow
-    port: '9100'
+    port: "9100"
     proto: tcp
     from_ip: "{{ tailscale_subnet }}"
   tags: [nist, sc-7]
@@ -518,11 +514,7 @@
 # 7. NIST CONTROLS IMPLEMENTATION
 # ------------------------------------------------------------------------------
 - name: Include NIST 800-53 control implementations
-  include_tasks: nist.yml
-
-# ------------------------------------------------------------------------------
-# 8. SECURITY SUMMARY
-# ------------------------------------------------------------------------------
+  ansible.builtin.include_tasks: nist.yml
 - name: Display security configuration summary
   ansible.builtin.debug:
     msg:
@@ -542,7 +534,8 @@
       - ""
       - "🛡️  Firewall Rules:"
       - "  - HTTP/HTTPS: Public (80, 443)"
-      - "  {% if ansible_host.startswith('100.') %}- SSH: Tailscale VPN ONLY{% else %}- SSH: Temporary public bootstrap + Tailscale{% endif %}"
+      - "  {% if ansible_host.startswith('100.') %}- SSH: Tailscale VPN ONLY{% else %}- SSH: Temporary public bootstrap +
+        Tailscale{% endif %}"
       - "  - Tailscale mesh: UDP 41641"
       - "  - Docker bridge: 172.16.0.0/12"
       - ""
@@ -556,7 +549,8 @@
       - "{% if cloud_provider == 'oci' %}  - UFW now controls all filtering{% endif %}"
       - ""
       - "⚠️  IMPORTANT:"
-      - "  {% if ansible_host.startswith('100.') %}- Public bootstrap SSH removed after switching inventory to Tailscale IPs{% else %}- Finish bootstrap, update inventory to Tailscale IPs, then rerun security to remove public SSH{% endif %}"
+      - "  {% if ansible_host.startswith('100.') %}- Public bootstrap SSH removed after switching inventory to Tailscale IPs{%
+        else %}- Finish bootstrap, update inventory to Tailscale IPs, then rerun security to remove public SSH{% endif %}"
       - "  - Ansible connects via Tailscale mesh"
       - "  - Public SSH is intended only for bootstrap and recovery windows"
       - "========================================="

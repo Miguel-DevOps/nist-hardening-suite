@@ -15,8 +15,8 @@ cloud_provider: oci
 portainer_edge_target_brain: "{{ groups['brain'][0] }}"
 
 # Worker-specific settings
-worker_enable_autoscaling: false  # For future use
-worker_max_containers: 50         # For future monitoring
+worker_enable_autoscaling: false # For future use
+worker_max_containers: 50 # For future monitoring
 
 # Observability
 # Muscle does not host the monitoring UI stack, but should export metrics to brain.
@@ -25,4 +25,4 @@ enable_metrics_exporters: true
 monitoring_port: 9100
 
 # Backup configuration (for future use)
-enable_backups: false  # Workers are stateless
+enable_backups: false # Workers are stateless

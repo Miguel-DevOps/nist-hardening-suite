@@ -14,8 +14,8 @@ observability_stack_loki_port: "3100:3100"
 observability_stack_grafana_port: "3000:3000"
 
 # Observability compose deployment defaults
-observability_compose_pull_policy: "missing"   # valid: always, missing, never, policy
-observability_compose_recreate_policy: "auto"  # valid: always, never, auto
+observability_compose_pull_policy: "missing" # valid: always, missing, never, policy
+observability_compose_recreate_policy: "auto" # valid: always, never, auto
 observability_compose_wait_timeout: 300
 observability_cadvisor_port: 18080
 
@@ -48,22 +48,22 @@ net_ipv4_conf_all_accept_source_route: 0
 net_ipv6_conf_all_accept_source_route: 0
 
 # Auditd rules file mode (safe)
-auditd_rules_file_mode: '0640'
+auditd_rules_file_mode: "0640"
 
 # =====================
 # File/Directory Modes (safe to expose)
-file_mode_default: '0644'  # Used for most config files
-app_data_dir_mode: '0755'  # Used for persistent data directories
+file_mode_default: "0644" # Used for most config files
+app_data_dir_mode: "0755" # Used for persistent data directories
 # Default mode for directories (used in roles like crowdsec)
-dir_mode_default: '0755'
+dir_mode_default: "0755"
 # Default mode for sensitive files (e.g., secrets, audit logs)
-file_mode_sensitive: '0600'
-file_mode_exec: '0755'
+file_mode_sensitive: "0600"
+file_mode_exec: "0755"
 
 # =====================
 # Service/User/Group IDs (safe to expose)
-container_user_nobody: '65534'
-container_group_nogroup: '65534'
+container_user_nobody: "65534"
+container_group_nogroup: "65534"
 
 # =====================
 # Resource Limits (safe to expose)

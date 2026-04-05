@@ -70,15 +70,15 @@
     owner: "{{ caddy_user_uid }}"
     group: "{{ caddy_user_gid }}"
   loop:
-    - { path: '/etc/caddy', mode: '0750' }
-    - { path: '/var/www/html', mode: '0755' }
+    - { path: "/etc/caddy", mode: "0750" }
+    - { path: "/var/www/html", mode: "0755" }
   tags: [nist, cm-7, sc-28]
 
 - name: Ensure ingress stack directory exists
   ansible.builtin.file:
     path: "{{ app_base_dir }}/ingress"
     state: directory
-    mode: '0755'
+    mode: "0755"
     owner: root
     group: root
 
@@ -86,7 +86,7 @@
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    mode: '0755'
+    mode: "0755"
     owner: root
     group: root
   loop:
@@ -97,13 +97,13 @@
   ansible.builtin.file:
     path: "{{ app_base_dir }}/ingress/{{ item }}"
     state: directory
-    mode: '0755'
+    mode: "0755"
     owner: "{{ caddy_user_uid }}"
     group: "{{ caddy_user_gid }}"
   loop:
-    - 'caddy-data'
-    - 'caddy-config'
-    - 'certs'
+    - "caddy-data"
+    - "caddy-config"
+    - "certs"
 
 # Detect userns-remap so bind-mount files are owned by the remapped UID.
 # With 'userns-remap: default', container UID X maps to host UID (subuid_base + X).
@@ -134,7 +134,7 @@
   ansible.builtin.file:
     path: /var/log/caddy
     state: directory
-    mode: '0750'
+    mode: "0750"
     owner: "{{ _caddy_log_uid }}"
     group: "{{ _caddy_log_gid }}"
   tags: [nist, au-12, si-4]
@@ -152,7 +152,7 @@
   ansible.builtin.file:
     path: /var/log/caddy/access.log
     state: touch
-    mode: '0640'
+    mode: "0640"
     owner: "{{ _caddy_log_uid }}"
     group: "{{ _caddy_log_gid }}"
   tags: [nist, au-12, si-4]
@@ -177,7 +177,7 @@
   ansible.builtin.template:
     src: Caddyfile.j2
     dest: "{{ app_base_dir }}/ingress/Caddyfile"
-    mode: '0644'
+    mode: "0644"
     owner: "{{ caddy_user_uid }}"
     group: "{{ caddy_user_gid }}"
 
@@ -220,7 +220,7 @@
   ansible.builtin.template:
     src: docker-compose.yml.j2
     dest: "{{ app_base_dir }}/ingress/docker-compose.yml"
-    mode: '0644'
+    mode: "0644"
     owner: root
     group: root
 
