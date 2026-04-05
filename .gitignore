@@ -173,10 +173,12 @@ tmp/
 temp/
 
 # =================================================
-# Python / uv local environments
+# Python / uv / pnpm / node local environments
 # =================================================
 .venv/
 .uv/
+.pnpm/
+node_modules/
 
 # Ignore Caddyfile.j2 (user-specific config)
 roles/stack_ingress/templates/Caddyfile.j2
