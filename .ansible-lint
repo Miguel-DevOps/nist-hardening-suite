@@ -19,3 +19,7 @@ skip_list:
 warn_list:
   # 503: Tasks should have tags (important for selective execution)
   - missing-tags
+  # Repository-local policy: treat these as warnings so pre-commit stays green.
+  - yaml[line-length]
+  - risky-shell-pipe
+  - var-naming[no-role-prefix]

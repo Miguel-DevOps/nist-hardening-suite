@@ -7,6 +7,8 @@ This project uses Make as the single operational interface for setup, deployment
 Operational rules:
 
 - All Ansible-related execution runs through `uv run`.
+- Node-based tooling policy: use `pnpm` only (no `npm`).
+- Prettier execution must run through `pnpm` (for example, `pnpm dlx prettier@3.8.1`).
 - `make lint` is strict and validates YAML plus the selected playbook.
 - Recommended apps without `.env` are skipped with one short warning instead of a long compose failure.
 
@@ -60,46 +62,54 @@ make vault-edit VAULT_FILE=group_vars/all/secrets.yml
 
 ```bash
 # Base hardening (site.yml)
-make deploy ANSIBLE_OPTS='--ask-vault-pass'
+make deploy
 
 # Management stack (stacks.yml)
-make deploy-stacks ANSIBLE_OPTS='--ask-vault-pass'
+make deploy-stacks
 
 # Observability stack (monitoring.yml)
-make deploy-monitoring ANSIBLE_OPTS='--ask-vault-pass'
+make deploy-monitoring
 ```
 
-Makefile now handles privilege escalation prompting in a scalable way:
+Makefile handles prompting automatically in a scalable way:
 
 - If inventory contains a host with `ansible_user` different from `root`, it automatically adds `--ask-become-pass`.
 - If all hosts are `root`, it does not add become password prompt.
+- Deployment targets include `--ask-vault-pass` by default so encrypted runtime secrets can be decrypted at execution time.
 
 Examples:
 
 ```bash
-make deploy ANSIBLE_OPTS='--ask-vault-pass'
+make deploy
 ```
 
 ## 5. Advanced Deployment Controls
 
 ```bash
 # Dry run any playbook
-make dry-run PLAYBOOK=site.yml ANSIBLE_OPTS='--ask-vault-pass'
+make dry-run PLAYBOOK=site.yml
 
 # Run a custom playbook
-make deploy-custom PLAYBOOK=stacks.yml ANSIBLE_OPTS='--ask-vault-pass'
+make deploy-custom PLAYBOOK=stacks.yml
 
 # Limit execution to one host or group
-make deploy ANSIBLE_LIMIT=brain ANSIBLE_OPTS='--ask-vault-pass'
+make deploy ANSIBLE_LIMIT=brain
 
 # Run specific tags
-make deploy-tags PLAYBOOK=site.yml ANSIBLE_TAGS='nist,sc-7' ANSIBLE_OPTS='--ask-vault-pass'
+make deploy-tags PLAYBOOK=site.yml ANSIBLE_TAGS='nist,sc-7'
 
 # Skip specific tags
-make deploy-skip-tags PLAYBOOK=site.yml ANSIBLE_SKIP_TAGS='tailscale,vpn' ANSIBLE_OPTS='--ask-vault-pass'
+make deploy-skip-tags PLAYBOOK=site.yml ANSIBLE_SKIP_TAGS='tailscale,vpn'
 
 # Compliance-only run
-make compliance ANSIBLE_OPTS='--ask-vault-pass'
+make compliance
+```
+
+Optional override:
+
+```bash
+# Disable vault prompt only when encrypted vars are not required
+make deploy VAULT_PROMPT_FLAG=
 ```
 
 ## 6. Verification and Monitoring
@@ -160,13 +170,13 @@ make recommended-down
 make show-inventory
 
 # Destructive cleanup (guarded by confirmation phrase)
-make nuke CONFIRM=DESTROY_ALL_INFRASTRUCTURE ANSIBLE_OPTS='--ask-vault-pass'
+make nuke CONFIRM=DESTROY_ALL_INFRASTRUCTURE
 ```
 
 Optional variable overrides:
 
 ```bash
-make deploy ANSIBLE_INVENTORY=inventory/hosts.ini.test ANSIBLE_OPTS='--ask-vault-pass'
+make deploy ANSIBLE_INVENTORY=inventory/hosts.ini.test
 ```
 
 ## 10. Production Runbook (Recommended Order)
@@ -176,9 +186,9 @@ make sync
 make install-collections
 make vault-init
 make vault-edit
-make deploy ANSIBLE_OPTS='--ask-vault-pass'
-make deploy-stacks ANSIBLE_OPTS='--ask-vault-pass'
-make deploy-monitoring ANSIBLE_OPTS='--ask-vault-pass'
+make deploy
+make deploy-stacks
+make deploy-monitoring
 make verify-tailscale
 make verify-crowdsec
 make verify-observability

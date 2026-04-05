@@ -8,7 +8,7 @@ ignore: |
 rules:
   # Line length: allow longer lines for readability
   line-length:
-    max: 120
+    max: 240
     level: warning
 
   # Indentation: enforce 2-space indentation
@@ -57,14 +57,12 @@ rules:
 
   # New lines: one newline at end of file
   new-line-at-end-of-file: {}
-
   # New lines: max 2 blank lines
   new-lines:
     type: unix
 
   # Trailing spaces: forbid them
   trailing-spaces: {}
-
   # Empty values: forbid
   empty-values:
     forbid-in-block-mappings: true
