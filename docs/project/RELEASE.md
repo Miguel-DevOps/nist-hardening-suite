@@ -67,6 +67,7 @@ GitHub Actions will automatically run the security audit on version tags.
 ## Manual Release Steps
 
 ### 1. Prepare Release Branch
+
 ```bash
 git checkout master
 git pull origin master
@@ -74,12 +75,14 @@ git checkout -b release/vX.Y.Z
 ```
 
 ### 2. Verify Documentation
+
 - [ ] README.md is accurate and NIST claims match implementation
 - [ ] docs/architecture/ARCHITECTURE.md reflects actual system design
 - [ ] docs/project/CHANGELOG.md documents all changes for this release
 - [ ] All links are valid (no broken references)
 
 ### 2.1 Organize Atomic Commits Before Release
+
 Use small, logically grouped commits before the final release commit.
 The repository history already follows Conventional Commit-style prefixes and releases should keep that convention:
 
@@ -99,9 +102,11 @@ git commit -m "feat!(tailscale): require OAuth client credentials for ACL automa
 ```
 
 ### 3. Run All Validation (see above)
+
 Complete all automated checks. All must pass before proceeding.
 
 ### 4. Create Release Commit and Tag
+
 ```bash
 git commit -m "Release vX.Y.Z: NIST Hardening Suite
 
@@ -122,6 +127,7 @@ git push origin vX.Y.Z
 ```
 
 ### 5. Create GitHub Release
+
 1. Go to Releases → Create New Release
 2. Title: `NIST Hardening Suite vX.Y.Z`
 3. Notes: Copy the corresponding `CHANGELOG.md` section
@@ -138,6 +144,7 @@ git push origin vX.Y.Z
 ## Version Bumping Strategy
 
 Follow semantic versioning:
+
 - **v1.0.1** – Security patches only (no new features)
 - **v1.1.0** – New features, backwards compatible
 - **v2.0.0** – Breaking changes, including operator-facing config migrations

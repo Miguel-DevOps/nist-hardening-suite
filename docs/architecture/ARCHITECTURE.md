@@ -18,7 +18,7 @@ The NIST Hardening Suite is a multi‑layer security framework that transforms v
 graph TB
     Ansible[Ansible Control Node] -->|SSH + Ansible Vault| OCI[OCI Production Node]
     Ansible -->|SSH + Ansible Vault| Hetzner[Hetzner Management Node]
-    
+
     subgraph "Applied Security Layers"
         OCI --> L1["Layer 1: Base System<br/>Packages, timezone, locale, limits"]
         OCI --> L2["Layer 2: Account Security<br/>SSH hardening, fail2ban, root lockout"]
@@ -27,7 +27,7 @@ graph TB
         OCI --> L5["Layer 5: VPN Mesh<br/>Tailscale zero‑trust network"]
         OCI --> L6["Layer 6: Container Runtime<br/>Docker Engine with pinned versions"]
     end
-    
+
     subgraph "Monitoring & Management"
         CrowdSec[CrowdSec Console] -->|Hybrid signals| OCI
         CrowdSec -->|Hybrid signals| Hetzner
@@ -40,14 +40,14 @@ graph TB
 
 ### NIST 800‑53 Control Implementation
 
-| Control | Layer | Implementation |
-|---------|-------|----------------|
-| **AC‑2** Account Management | Layer 2 | SSH password auth disabled, root login prohibited, fail2ban brute‑force protection |
-| **CM‑7** Least Functionality | Layer 1 | Unused filesystems (cramfs, freevxfs, etc.) blacklisted, minimal packages |
-| **SC‑7** Boundary Protection | Layer 3 | UFW default‑deny firewall, provider‑specific iptables hardening, rate‑limited SSH |
-| **SI‑4** System Monitoring | Layer 4 | CrowdSec collaborative IPS, real‑time threat detection, log analysis |
-| **AU‑12** Audit Generation | Layer 4 | auditd system‑call monitoring, privileged command logging, tamper‑resistant logs |
-| **SC‑28** Data at Rest | All Layers | Secrets via Ansible Vault; disk encryption handled at provisioning (audit only) |
+| Control                      | Layer      | Implementation                                                                     |
+| ---------------------------- | ---------- | ---------------------------------------------------------------------------------- |
+| **AC‑2** Account Management  | Layer 2    | SSH password auth disabled, root login prohibited, fail2ban brute‑force protection |
+| **CM‑7** Least Functionality | Layer 1    | Unused filesystems (cramfs, freevxfs, etc.) blacklisted, minimal packages          |
+| **SC‑7** Boundary Protection | Layer 3    | UFW default‑deny firewall, provider‑specific iptables hardening, rate‑limited SSH  |
+| **SI‑4** System Monitoring   | Layer 4    | CrowdSec collaborative IPS, real‑time threat detection, log analysis               |
+| **AU‑12** Audit Generation   | Layer 4    | auditd system‑call monitoring, privileged command logging, tamper‑resistant logs   |
+| **SC‑28** Data at Rest       | All Layers | Secrets via Ansible Vault; disk encryption handled at provisioning (audit only)    |
 
 ### Network Architecture
 
@@ -66,6 +66,7 @@ Public Internet
 ```
 
 **Key Decisions:**
+
 - **Public SSH only on Brain** – Management node accessible for emergencies
 - **Muscle nodes VPN‑only** – Compute workers isolated from public internet
 - **Tailscale mesh** – Zero‑trust networking with mutual TLS authentication
@@ -74,6 +75,7 @@ Public Internet
 ## 🔄 Execution Flow
 
 ### Bootstrap Phase (`site.yml`)
+
 ```
 1. Pre‑flight validation (secrets, inventory)
 2. Base system configuration (common role)
@@ -85,6 +87,7 @@ Public Internet
 ```
 
 ### Application Phase (`stacks.yml`)
+
 ```
 1. Ingress layer deployment (Caddy reverse proxy)
 2. Management layer deployment (Portainer UI + Edge Agents)
@@ -119,24 +122,28 @@ nist-hardening-suite/
 ## 🔧 Technical Decisions
 
 ### Why Ansible?
+
 - **Agentless** – No software required on target servers
 - **Idempotent** – Safe for continuous compliance
 - **Human‑readable** – YAML syntax accessible to ops teams
 - **Extensible** – Large collection ecosystem
 
 ### Why Tailscale over WireGuard?
+
 - **Zero‑config** – No manual peer management
 - **Centralized ACLs** – Policy‑based access control
 - **NAT traversal** – Works behind firewalls without port forwarding
 - **Commercial support** – Enterprise‑grade reliability
 
 ### Why CrowdSec over traditional IDS?
+
 - **Collaborative** – Learns from global threat intelligence
 - **Low false positives** – Behavior‑based detection
 - **Container‑native** – Lightweight, Docker‑friendly
 - **Open core** – Free local detection, paid console optional
 
 ### Why UFW over nftables/iptables?
+
 - **Simpler syntax** – Less error‑prone for basic rules
 - **Ubuntu default** – Well‑tested, widely supported
 - **Docker integration** – Automatic rule management for containers
@@ -145,18 +152,21 @@ nist-hardening-suite/
 ## 📈 Scaling Considerations
 
 ### Horizontal Scaling
+
 - Add more `muscle` nodes to inventory
 - Portainer Edge Agents automatically connect to management node (pull‑based)
 - CrowdSec signals shared across all nodes
 - Tailscale mesh automatically includes new nodes
 
 ### Vertical Scaling
+
 - Increase Docker resource limits in `daemon.json`
 - Adjust UFW connection limits for high‑traffic services
 - Scale CrowdSec parser routines based on log volume
 - Tune auditd rules for specific compliance requirements
 
 ### High Availability
+
 - Brain node is single point of failure for management
 - Muscle nodes are stateless, can be replaced automatically
 - Consider deploying multiple brain nodes with load balancing
@@ -165,12 +175,14 @@ nist-hardening-suite/
 ## 🚀 Deployment Considerations
 
 ### Cloud Provider Specifics
+
 - **Oracle Cloud (OCI)** – Requires iptables killswitch (provider‑injected rules)
 - **Hetzner** – Clean slate, minimal provider interference
 - **AWS/GCP/Azure** – Tested but may need provider‑specific firewall rules
 - **Bare Metal** – Works identically, no cloud‑specific modifications
 
 ### Performance Impact
+
 - **CPU**: <5% for security tools (CrowdSec, auditd)
 - **Memory**: ~200MB for Docker, ~100MB for Tailscale, ~50MB for CrowdSec
 - **Network**: Minimal overhead for Tailscale (WireGuard‑based)
@@ -179,22 +191,26 @@ nist-hardening-suite/
 ## 🔍 Monitoring & Observability
 
 ### Built‑In Monitoring
+
 - **CrowdSec alerts** – Real‑time security incidents
 - **auditd logs** – System‑call auditing (NIST AU‑12)
 - **Docker metrics** – Container resource usage
 - **Tailscale status** – VPN connectivity and latency
 
 ### Optional Observability Stack
+
 - **VictoriaMetrics** – Time‑series database for metrics
 - **Grafana** – Dashboards and visualization
 - **Loki** – Log aggregation and querying
 
 ### Recommended Applications (Optional)
+
 - **Uptime Kuma** – Service availability monitoring as a standalone app under `recommended_apps/` (decoupled from core observability role)
 
 ## 🔒 Security Considerations & Known Risks
 
 ### Portainer Edge Agent Architecture
+
 The suite deploys **Portainer Edge Agent** by default (`portainer-edge-agent.yml.j2`), which uses a **pull‑based architecture** with **zero open ports** on managed nodes. This eliminates lateral movement risks identified in previous audits:
 
 - **Zero open ports**: Edge Agents poll the Portainer server every 5 seconds via outbound connections
@@ -203,20 +219,26 @@ The suite deploys **Portainer Edge Agent** by default (`portainer-edge-agent.yml
 - **Docker socket**: Mounted in the Edge Agent container for management operations (privileged interface; isolate and monitor accordingly)
 
 ### Caddy Ingress & Zero Trust
+
 The default `Caddyfile.j2` includes a `(vpn_only)` block that restricts access to Tailscale IPs (100.64.0.0/10). All example site definitions import this block, enforcing Zero Trust at the ingress layer. Remove `import vpn_only` from any site that requires public internet access.
 The repository now ships `roles/stack_ingress/templates/Caddyfile.example.j2` as the tracked baseline. Operators must copy it to `Caddyfile.j2` locally before running `stacks.yml`; the untracked file stays deployment-specific by design.
 
 ### SC‑28 Data at Rest Clarification
+
 The NIST SC‑28 control is partially implemented:
+
 - **Secrets encryption**: Fully automated via Ansible Vault (secrets encrypted at rest)
 - **Disk encryption**: **Not automated** – the suite only audits for existing LUKS encryption (`lsblk -f | grep crypto_LUKS`). Full disk encryption must be configured manually at the provider or OS level.
 
 ### Tailscale Authentication Key Handling
+
 Authentication keys are passed via `stdin` to `tailscale up --authkey=-` and never written to disk, eliminating the race‑condition risk of temporary file residue.
 The Ansible task must set `stdin_add_newline: false`; otherwise Ansible appends a trailing newline and Tailscale rejects the OAuth secret as an invalid key.
 
 ### Tailscale ACL API Authentication (OAuth Mandatory)
+
 ACL automation is OAuth-only in this repository to keep least privilege and short-lived credentials by default:
+
 - The role exchanges `tailscale_acl_client_id` + `tailscale_acl_key` at `https://api.tailscale.com/api/v2/oauth/token`.
 - It validates policy with `POST /api/v2/tailnet/{tailnet|\-}/acl/validate` before applying `POST /api/v2/tailnet/{tailnet|\-}/acl`.
 - Long-lived API access tokens are intentionally not supported in role logic.

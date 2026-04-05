@@ -1,4 +1,8 @@
-# NIST Hardening Suite | Developmi
+<div align="center">
+
+<img src="docs/assets/nist-hardening-suite.png" width="150" alt="NIST Hardening Suite logo" />
+
+# NIST‑ALIGNED HARDENING SUITE | Developmi
 
 ![Tool](https://img.shields.io/badge/Tool-Ansible_Core-red?style=for-the-badge)
 ![Standard](https://img.shields.io/badge/Standard-NIST_800--53-blue?style=for-the-badge)
@@ -9,19 +13,20 @@
 ![Hetzner](https://img.shields.io/badge/Provider-Hetzner_Bare_Metal-cc342d?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48dGV4dCB4PSI1MCIgeT0iNjAiIGZvbnQtc2l6ZT0iNjAiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+SDwvdGV4dD48L3N2Zz4=)
 ![OCI](https://img.shields.io/badge/Provider-Oracle_Cloud-f80000?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48dGV4dCB4PSI1MCIgeT0iNjAiIGZvbnQtc2l6ZT0iNjAiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSJ3aGl0ZSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+T0M8L3RleHQ+PC9zdmc+)
 
-> 🛡️ **NIST‑ALIGNED HARDENING SUITE**
-> 
+</div>
+
 > **The Script is Free. Peace of Mind Isn't.**
-> 
+>
 > This open-source Ansible suite demonstrates enterprise‑grade security hardening aligned with NIST 800‑53.
 > It implements NIST 800‑53 controls for hybrid cloud infrastructure:
+>
 > - SSH hardening & root account lockout (AC‑2)
-> - Firewall enforcement with UFW (SC‑7) 
+> - Firewall enforcement with UFW (SC‑7)
 > - Intrusion prevention with CrowdSec (SI‑4)
 > - Encrypted secrets management with Ansible Vault
-> 
+>
 > **Business Model:** The hardening script is free (MIT licensed). I charge a monthly retainer for continuous monitoring via CrowdSec, ensuring your infrastructure stays compliant.
-
+>
 > **Current Release:** `v4.3.0` (APT reliability hardening across roles, Make-based operations interface, CrowdSec monitor robustness, bootstrap safety improvements, and documentation consolidation)
 
 ---
@@ -31,6 +36,7 @@
 The **NIST-Compliant Hardening Suite** is an automated configuration management framework designed to solve the **Security Parity** problem in hybrid cloud environments.
 
 ### 🎯 Initially Focused On:
+
 - **🏢 Hetzner** – Bare Metal servers (Cloud specials, dedicated hosting)
 - **☁️ Oracle Cloud** – OCI Compute instances (E2, Standard, Optimized shapes)
 
@@ -46,26 +52,31 @@ Operational policy: the README no longer includes direct terminal execution comm
 Use **[COMMANDS.md](docs/operations/COMMANDS.md)** as the single source of truth for all setup, deployment, validation, and maintenance commands.
 
 ### Prerequisites
+
 - Python 3.14+
 - `uv` for reproducible local tooling
 - Ansible Core 2.19+
-- `ansible-vault` for secret management  
+- `ansible-vault` for secret management
 - SSH access to target servers
 
 ### 1. Clone & Setup
+
 Follow the initial setup flow in **[COMMANDS.md](docs/operations/COMMANDS.md)** (sections: Help and Initial Setup).
 
 ### 2. Configure Inventory
+
 Edit `inventory/hosts.ini` with your server IPs and credentials:
+
 ```ini
 [brain]
 brain-1 ansible_host=YOUR_PUBLIC_IP ansible_user=root public_ip=YOUR_PUBLIC_IP
 
-[muscle]  
+[muscle]
 muscle-1 ansible_host=YOUR_PUBLIC_IP ansible_user=ubuntu public_ip=YOUR_PUBLIC_IP
 ```
 
 ### 3. Set Up Encrypted Secrets
+
 Use the Vault workflow documented in **[COMMANDS.md](docs/operations/COMMANDS.md)** (section: Secrets and Vault).
 
 For Portainer Edge-only deployments, add one entry per Edge environment (node) to `portainer_edge_keys_by_node` in your Vault. Keys use the exact inventory hostname. Recommended naming from day one: `brain-1`, `muscle-1`, `brain-2`, `muscle-2`, etc.
@@ -79,6 +90,7 @@ portainer_edge_keys_by_node:
 ```
 
 Default routing:
+
 - Brain hosts associate their Edge Agent to themselves.
 - Muscle hosts associate to `groups['brain'][0]` unless `portainer_edge_target_brain` is overridden per host or group.
 
@@ -86,9 +98,11 @@ For automated ACL management, also set `tailscale_acl_client_id` and a `tailscal
 Legacy long-lived API tokens are not supported by the current ACL automation flow.
 
 ### 4. Run Base Hardening (NIST Compliance)
+
 Run the base hardening deployment from **[COMMANDS.md](docs/operations/COMMANDS.md)** (section: Core Deployments).
 
 Expected result includes:
+
 - SSH password auth disabled (keys only)
 - Fail2ban active (3 attempts = 1h ban)
 - UFW enabled with Docker ports configured
@@ -96,13 +110,16 @@ Expected result includes:
 - NIST controls AC‑2, CM‑7, SC‑7, SI‑4, AU‑12, SC‑28 (secrets via Vault; disk encryption at provisioning) applied
 
 ### 5. Deploy Management Stack
+
 Prepare your local ingress template from `roles/stack_ingress/templates/Caddyfile.example.j2` to `roles/stack_ingress/templates/Caddyfile.j2`, then run the stack deployment flow from **[COMMANDS.md](docs/operations/COMMANDS.md)**.
 
 ### 5.1 Optional Add-on: Observability Stack (Anti-Bloat)
+
 Use this only on servers with sufficient resources.
 Use the observability deployment workflow from **[COMMANDS.md](docs/operations/COMMANDS.md)**.
 
 Observability variable model:
+
 - `enable_observability_stack`: node hosts Grafana/VictoriaMetrics/Loki preparation
 - `enable_metrics_exporters`: node is expected to expose metrics toward brain
 - `observability_network_name`: Docker bridge network name used by Node Exporter/cAdvisor (Vault-backed in `group_vars/all/secrets.yml`)
@@ -113,10 +130,12 @@ Observability variable model:
 - Recommended architecture: `brain=true/true`, `muscle=false/true`
 
 Observability compose source of truth is centralized in role templates:
+
 - `roles/observability/templates/exporters-docker-compose.yml.j2` (single template for brain + muscle)
 - `roles/observability/templates/observability-stack-docker-compose.yml.j2` (brain stack)
 
 After running `monitoring.yml`, Ansible prepares these generated artifacts on target hosts:
+
 - `/srv/app/observability/exporters/docker-compose.yml` (on nodes with `enable_metrics_exporters: true`)
 - `/srv/app/observability/docker-compose.yml` (on brain when `enable_observability_stack: true`)
 - `/srv/app/observability/.env` (rendered from Vault-backed variables with mode `0600`)
@@ -126,6 +145,7 @@ Deployment of observability containers is automated by Ansible via `community.do
 Sensitive runtime values are stored in `group_vars/all/secrets.yml` and rendered on-host into `/srv/app/observability/.env` with restrictive permissions.
 
 Selective deployment for observability is available through `monitoring.yml` tags:
+
 - `exporters`: deploy Node Exporter + cAdvisor on nodes with `enable_metrics_exporters: true`
 - `observability_stack` or `stack`: deploy VictoriaMetrics + Loki + Grafana on brain nodes
 - `node_exporter`, `cadvisor`, `victoriametrics`, `loki`, `grafana`: deploy only that service while still preparing required shared assets
@@ -137,11 +157,13 @@ Selective deployment for observability is available through `monitoring.yml` tag
 Post-deploy validation (recommended after each `monitoring.yml` run) is documented in **[COMMANDS.md](docs/operations/COMMANDS.md)** under Verification and Monitoring.
 
 Expected result:
+
 - `node_exporter_ok` should be present on exporter-enabled nodes.
 - `cadvisor_ok` is ideal; `cadvisor_limited_or_down` can occur on hardened nodes and should be evaluated against your accepted observability baseline.
 - Brain target view should list Node Exporter consistently; cAdvisor may be partial depending on hardening constraints.
 
 Selective cleanup for observability is available through `nuke.yml` tags:
+
 - `exporters`: removes Node Exporter + cAdvisor and shared exporters assets
 - `observability_stack`: removes VictoriaMetrics + Loki + Grafana and shared stack assets
 - `node_exporter`, `cadvisor`, `victoriametrics`, `loki`, `grafana`, `uptime_kuma`: removes only that service and its dedicated data when applicable (`uptime_kuma` tag is kept for legacy cleanup compatibility)
@@ -150,9 +172,11 @@ Selective cleanup for observability is available through `nuke.yml` tags:
 Warning: service-specific cleanup can leave shared observability assets in place by design, while broader tags such as `observability_stack`, `exporters`, `observability`, or `monitoring` can break remaining observability components if used partially.
 
 ### 5.2 Recommended Applications (Optional, Plug-and-Play)
+
 Recommended apps that are not part of the core observability role now live under `recommended_apps/`.
 
 Current catalog:
+
 - `recommended_apps/chatwoot/docker-compose.yml`
 - `recommended_apps/chatwoot/.env.example`
 - `recommended_apps/n8n/docker-compose.yml`
@@ -163,6 +187,7 @@ Current catalog:
 - `recommended_apps/uptime-kuma/.env.example`
 
 Deployment model:
+
 - Core platform keeps Caddy as the standard ingress boundary and Zero Trust choke point.
 - App compose files are optional artifacts designed for Portainer UI or Docker Compose.
 - For secure defaults, prefer exposing apps through Caddy on `public_net` instead of opening direct host ports.
@@ -170,35 +195,41 @@ Deployment model:
 See **[APP_RECOMMENDED_GUIDE.md](docs/operations/apps/APP_RECOMMENDED_GUIDE.md)** for secure deployment patterns and operational guidance.
 
 ### 6. Verify & Monitor
+
 Use the verification runbook in **[COMMANDS.md](docs/operations/COMMANDS.md)** for Tailscale, CrowdSec, audit logs, and observability checks.
 
 ### 📋 What Gets Installed
-| Component | Purpose | NIST Control |
-|-----------|---------|--------------|
-| **UFW Firewall** | Default‑deny firewall with SSH rate limiting | SC‑7 |
-| **Fail2ban** | Brute‑force protection (3 attempts = 1h ban) | AC‑2 |
-| **Tailscale VPN** | Zero‑trust mesh network (replaces public SSH) | SC‑7 |
-| **CrowdSec** | Collaborative intrusion prevention system | SI‑4 |
-| **AuditD** | System call monitoring & audit trail | AU‑12 |
-| **Docker Engine** | Container runtime (pinned versions) | CM‑7 |
-| **Portainer Edge Agent** | Pull‑based container management (zero open ports) | SC‑7 |
-| **Ansible Vault** | Encrypted secrets management | SC‑28 (Audit Only / Partial) |
- 
+
+| Component                | Purpose                                           | NIST Control                 |
+| ------------------------ | ------------------------------------------------- | ---------------------------- |
+| **UFW Firewall**         | Default‑deny firewall with SSH rate limiting      | SC‑7                         |
+| **Fail2ban**             | Brute‑force protection (3 attempts = 1h ban)      | AC‑2                         |
+| **Tailscale VPN**        | Zero‑trust mesh network (replaces public SSH)     | SC‑7                         |
+| **CrowdSec**             | Collaborative intrusion prevention system         | SI‑4                         |
+| **AuditD**               | System call monitoring & audit trail              | AU‑12                        |
+| **Docker Engine**        | Container runtime (pinned versions)               | CM‑7                         |
+| **Portainer Edge Agent** | Pull‑based container management (zero open ports) | SC‑7                         |
+| **Ansible Vault**        | Encrypted secrets management                      | SC‑28 (Audit Only / Partial) |
+
 **Note on SC‑28 (Data at Rest):** Implemented via Ansible Vault for secrets. Disk encryption must be handled at the provisioning layer (Tofu/Terraform). This suite does NOT encrypt disks and only audits for existing LUKS.
 
 ---
+
 ## ⚠️ Security Considerations
 
 ### 🛡️ Portainer Edge Agent (Only Mode)
+
 The suite deploys **Portainer Edge Agent** only, which uses a **pull‑based architecture** with **zero open ports** on managed nodes. This eliminates lateral movement risks:
 
 - **Zero open ports**: Edge Agents poll the Portainer server every 5 seconds via outbound connections
-- **Reduced attack surface**: No API endpoints exposed on the Tailscale network  
+- **Reduced attack surface**: No API endpoints exposed on the Tailscale network
 - **True Zero Trust**: Agents initiate connections; they don't listen for incoming requests
 - **Docker socket**: Mounted in the agent container (required for Docker management operations). Treat as privileged access and isolate via Tailscale + host hardening.
 
 ### 🔐 Tailscale ACLs (Zero Trust Networking)
+
 **Required for production deployments**:
+
 - ACLs enforce least‑privilege access between `brain` and `muscle` nodes
 - Port‑level restrictions (e.g., SSH port 22)
 - Tag‑based policies for simplified management
@@ -207,13 +238,14 @@ The suite deploys **Portainer Edge Agent** only, which uses a **pull‑based arc
 - Existing ACL automation that used legacy API bearer tokens must migrate credentials before upgrading
 
 ### ☢️ Nuclear Cleanup (`nuke.yml`)
+
 This playbook is destructive and irreversible. It includes a mandatory confirmation prompt requiring the exact phrase `DESTROY_ALL_INFRASTRUCTURE`.
 Safety valve: nuke is blocked on hosts in the `production` inventory group.
 
 ### ✅ Accepted Risks
 
-- **SC‑28 (Data at Rest)**: Implemented via Ansible Vault for secrets. Disk encryption must be handled at the provisioning layer (Tofu/Terraform). This suite does NOT encrypt disks and only audits for existing LUKS. *Future releases may include automated LUKS provisioning as an optional feature.*
-- **Docker Socket Access (Portainer Edge Agent)**: Risk Acceptance. The Portainer Edge Agent requires Docker socket access. This is mitigated by pull-based architecture and Tailscale isolation, but still represents residual privilege-escalation risk if the container is compromised. *Future release: Docker Socket Proxy (Tecnativa) to restrict API calls.*
+- **SC‑28 (Data at Rest)**: Implemented via Ansible Vault for secrets. Disk encryption must be handled at the provisioning layer (Tofu/Terraform). This suite does NOT encrypt disks and only audits for existing LUKS. _Future releases may include automated LUKS provisioning as an optional feature._
+- **Docker Socket Access (Portainer Edge Agent)**: Risk Acceptance. The Portainer Edge Agent requires Docker socket access. This is mitigated by pull-based architecture and Tailscale isolation, but still represents residual privilege-escalation risk if the container is compromised. _Future release: Docker Socket Proxy (Tecnativa) to restrict API calls._
 - **OCI Killswitch**: The aggressive iptables flushing may cause temporary loss of SSH access if UFW fails to start. Backup rules are stored in `/etc/iptables/rules.v{4,6}.backup` for manual recovery.
 
 ## 🎯 Execution Control & Tags
@@ -227,22 +259,25 @@ For complete usage patterns (infrastructure phases, NIST control groups, stack s
 ## 💼 Business Model: NIST‑Aligned Hardening & Monitoring
 
 ### Open Source Code, Commercial Monitoring
+
 This project follows the **"Open Core"** business model:
 
-| Offering | Description | Price |
-|----------|-------------|-------|
-| **Hardening Suite** | Complete Ansible codebase (MIT licensed) | **FREE** |
-| **CrowdSec Monitoring** | Continuous intrusion detection & alerting | Monthly retainer |
-| **Compliance Auditing** | Monthly NIST control validation reports | Included in retainer |
-| **Emergency Response** | 24/7 security incident response | SLA‑based |
+| Offering                | Description                               | Price                |
+| ----------------------- | ----------------------------------------- | -------------------- |
+| **Hardening Suite**     | Complete Ansible codebase (MIT licensed)  | **FREE**             |
+| **CrowdSec Monitoring** | Continuous intrusion detection & alerting | Monthly retainer     |
+| **Compliance Auditing** | Monthly NIST control validation reports   | Included in retainer |
+| **Emergency Response**  | 24/7 security incident response           | SLA‑based            |
 
 ### Why This Model Works
+
 1. **Transparency Builds Trust** – The hardening script is publicly auditable
-2. **Security is Continuous** – Hardening is a one‑time action; threats evolve daily  
+2. **Security is Continuous** – Hardening is a one‑time action; threats evolve daily
 3. **Alignment of Incentives** – I profit only when your infrastructure stays secure
 4. **Enterprise‑Grade at Startup Cost** – NIST compliance without Fortune‑500 budgets
 
 ### Get Started
+
 1. **Use the free script** to harden your infrastructure
 2. **Contact me** for a CrowdSec monitoring retainer
 3. **Sleep better** knowing your compliance is actively monitored
@@ -253,11 +288,11 @@ This project follows the **"Open Core"** business model:
 
 Hybrid infrastructure introduces systemic security risks:
 
-- **Default Insecurity**  
+- **Default Insecurity**
   Fresh Debian/Ubuntu installations prioritize usability over security.
-- **Configuration Drift**  
+- **Configuration Drift**
   Manual hardening inevitably diverges between environments.
-- **Secret Sprawl**  
+- **Secret Sprawl**
   Plaintext credentials committed to Git represent a critical breach vector.
 
 ---
@@ -266,15 +301,15 @@ Hybrid infrastructure introduces systemic security risks:
 
 An **idempotent, auditable Ansible framework** that:
 
-1. **Hardens** systems using CIS Benchmark Level 1–aligned controls  
-2. **Defends** nodes via **CrowdSec** collaborative intrusion prevention  
- 3. **Encrypts** all secrets using **Ansible Vault** in a GitOps workflow
+1. **Hardens** systems using CIS Benchmark Level 1–aligned controls
+2. **Defends** nodes via **CrowdSec** collaborative intrusion prevention
+3. **Encrypts** all secrets using **Ansible Vault** in a GitOps workflow
 
 ---
 
 ## 🛡️ Architecture & Compliance Model
 
-The suite converts a *vanilla* operating system into a *hardened bastion host*.
+The suite converts a _vanilla_ operating system into a _hardened bastion host_.
 
 ```mermaid
 graph TD
@@ -295,13 +330,13 @@ graph TD
 
 ## 📜 NIST 800-53 Control Mapping
 
-| Control ID | Family              | Implementation                                                                 |
-| ---------- | ------------------- | ------------------------------------------------------------------------------ |
-| **AC-2**   | Account Management  | Root login disabled, SSH key‑only access, password authentication disabled     |
-| **CM-7**   | Least Functionality | Unused kernel modules blacklisted, unnecessary filesystems disabled            |
-| **SC-7**   | Boundary Protection | UFW firewall with default deny, provider‑specific iptables hardening           |
-| **SI-4**   | System Monitoring   | AuditD system‑call monitoring + CrowdSec IPS (real‑time threat detection)      |
-| **AU-12**  | Audit Generation    | Comprehensive audit trail for privileged commands & file access                |
+| Control ID | Family              | Implementation                                                                  |
+| ---------- | ------------------- | ------------------------------------------------------------------------------- |
+| **AC-2**   | Account Management  | Root login disabled, SSH key‑only access, password authentication disabled      |
+| **CM-7**   | Least Functionality | Unused kernel modules blacklisted, unnecessary filesystems disabled             |
+| **SC-7**   | Boundary Protection | UFW firewall with default deny, provider‑specific iptables hardening            |
+| **SI-4**   | System Monitoring   | AuditD system‑call monitoring + CrowdSec IPS (real‑time threat detection)       |
+| **AU-12**  | Audit Generation    | Comprehensive audit trail for privileged commands & file access                 |
 | **SC‑28**  | Data at Rest        | Secrets via Ansible Vault; disk encryption handled at provisioning (audit only) |
 
 ---
@@ -309,6 +344,7 @@ graph TD
 ## 🌐 Extended Compliance Positioning (NIST / CIS / ENS / DORA / MITRE)
 
 To keep this README operational and concise, compliance documentation is split into:
+
 - **[COMPLIANCE.md](docs/compliance/COMPLIANCE.md)** (executive compliance overview)
 - **[COMPLIANCE_MAPPINGS.md](docs/compliance/COMPLIANCE_MAPPINGS.md)** (detailed control matrices)
 - **[REGULATORY_REFERENCES.md](docs/compliance/REGULATORY_REFERENCES.md)** (authoritative reference registry)
@@ -321,18 +357,20 @@ To keep this README operational and concise, compliance documentation is split i
 - UFW default-deny + SSH hardening + auditd + CrowdSec support assume-breach and least-privilege operations.
 
 Reference:
+
 - [NIST SP 800-207](https://csrc.nist.gov/pubs/sp/800/207/final)
 
 ### CIS Benchmark Level 1 Alignment (Ubuntu/Debian)
 
-| Suite Area | Implementation | CIS Domain (generic) |
-|-----------|----------------|----------------------|
-| SSH hardening | Password auth disabled, root login restricted | Secure configuration / access control |
-| Host firewall | UFW default-deny and explicit allow rules | Boundary protection |
-| Least functionality | Unused filesystem modules blacklisted | Kernel/filesystem hardening |
-| Monitoring and audit | auditd + CrowdSec | Logging, auditing, threat detection |
+| Suite Area           | Implementation                                | CIS Domain (generic)                  |
+| -------------------- | --------------------------------------------- | ------------------------------------- |
+| SSH hardening        | Password auth disabled, root login restricted | Secure configuration / access control |
+| Host firewall        | UFW default-deny and explicit allow rules     | Boundary protection                   |
+| Least functionality  | Unused filesystem modules blacklisted         | Kernel/filesystem hardening           |
+| Monitoring and audit | auditd + CrowdSec                             | Logging, auditing, threat detection   |
 
 Reference:
+
 - [CIS Benchmarks](https://www.cisecurity.org/cis-benchmarks)
 
 ### EU Regulatory Context (ENS / SecNumCloud / DORA)
@@ -342,6 +380,7 @@ Reference:
 - CrowdSec + VictoriaMetrics/Loki/Grafana strengthen operational resilience monitoring required by regulated sectors.
 
 References:
+
 - [ENS - CCN-CERT](https://www.ccn-cert.cni.es/)
 - [ENS - BOE](https://www.boe.es/)
 - [DORA - EUR-Lex](https://eur-lex.europa.eu/homepage.html)
@@ -349,14 +388,15 @@ References:
 
 ### MITRE ATT&CK Blue Team Mapping
 
-| Defensive Control | ATT&CK Tactic | ATT&CK Technique (example) |
-|-------------------|---------------|----------------------------|
-| fail2ban + CrowdSec | Credential Access | T1110 Brute Force |
-| UFW default-deny | Initial Access | T1190 Exploit Public-Facing Application |
-| Tailscale ACLs | Lateral Movement | T1021 Remote Services |
+| Defensive Control   | ATT&CK Tactic                 | ATT&CK Technique (example)                                  |
+| ------------------- | ----------------------------- | ----------------------------------------------------------- |
+| fail2ban + CrowdSec | Credential Access             | T1110 Brute Force                                           |
+| UFW default-deny    | Initial Access                | T1190 Exploit Public-Facing Application                     |
+| Tailscale ACLs      | Lateral Movement              | T1021 Remote Services                                       |
 | auditd event trails | Detection / Forensics support | T1059 Command and Scripting Interpreter (detection context) |
 
 Reference:
+
 - [MITRE ATT&CK](https://attack.mitre.org/)
 
 ---
@@ -411,24 +451,26 @@ Unused filesystems are disabled to prevent malicious mounts.
 
 ## 🛠️ Security Tooling & NIST Alignment
 
-| Control Family | Tool / Implementation | Purpose |
-|----------------|----------------------|---------|
-| **AC‑2** Account Management | SSHd configuration, `fail2ban` | Restrict root access, enforce key‑based auth, brute‑force protection |
-| **CM‑7** Least Functionality | `modprobe` blacklisting | Disable unused kernel modules & filesystems |
-| **SC‑7** Boundary Protection | UFW, provider‑specific iptables rules | Default‑deny firewall, cloud provider hardening |
-| **SI‑4** System Monitoring | `auditd`, `crowdsec` IPS | Real‑time audit trail + collaborative intrusion prevention |
-| **AU‑12** Audit Generation | `auditd` rules, centralized logging | Compliance‑ready audit records |
-| **SC‑28** Data at Rest | Ansible Vault | Secrets via Vault; disk encryption handled at provisioning (audit only) |
+| Control Family               | Tool / Implementation                 | Purpose                                                                 |
+| ---------------------------- | ------------------------------------- | ----------------------------------------------------------------------- |
+| **AC‑2** Account Management  | SSHd configuration, `fail2ban`        | Restrict root access, enforce key‑based auth, brute‑force protection    |
+| **CM‑7** Least Functionality | `modprobe` blacklisting               | Disable unused kernel modules & filesystems                             |
+| **SC‑7** Boundary Protection | UFW, provider‑specific iptables rules | Default‑deny firewall, cloud provider hardening                         |
+| **SI‑4** System Monitoring   | `auditd`, `crowdsec` IPS              | Real‑time audit trail + collaborative intrusion prevention              |
+| **AU‑12** Audit Generation   | `auditd` rules, centralized logging   | Compliance‑ready audit records                                          |
+| **SC‑28** Data at Rest       | Ansible Vault                         | Secrets via Vault; disk encryption handled at provisioning (audit only) |
 
-**Provider‑Agnostic Design**:  
+**Provider‑Agnostic Design**:
 The suite auto‑detects `cloud_provider` (`hetzner`/`oci`) and applies provider‑specific hardening (e.g., OCI iptables killswitch, Hetzner rate‑limited SSH).
 
-**Built for SRE & FinOps**:  
-- **Idempotent** – safe to run repeatedly  
-- **Tagged roles** – selective execution via Make orchestration and tag variables  
-- **Cost‑aware** – no unnecessary packages, minimal footprint  
+**Built for SRE & FinOps**:
+
+- **Idempotent** – safe to run repeatedly
+- **Tagged roles** – selective execution via Make orchestration and tag variables
+- **Cost‑aware** – no unnecessary packages, minimal footprint
 
 ---
+
 ## 📚 Documentation
 
 Complete documentation for this project:
@@ -460,31 +502,33 @@ docs/
   └── CODE_OF_CONDUCT.md
 ```
 
-| Document | Purpose |
-|----------|---------|
-| **[ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md)** | System design, component architecture, NIST control mapping, and technical decisions |
-| **[COMMANDS.md](docs/operations/COMMANDS.md)** | Single source of truth for all operational commands through Make |
+| Document                                                                       | Purpose                                                                                    |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| **[ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md)**                       | System design, component architecture, NIST control mapping, and technical decisions       |
+| **[COMMANDS.md](docs/operations/COMMANDS.md)**                                 | Single source of truth for all operational commands through Make                           |
 | **[PRODUCTION_COMMAND_AUDIT.md](docs/operations/PRODUCTION_COMMAND_AUDIT.md)** | Security-first production checklist to validate Make command paths with execution evidence |
-| **[COMPLIANCE.md](docs/compliance/COMPLIANCE.md)** | Executive multi-framework compliance overview grounded in implemented controls |
-| **[COMPLIANCE_MAPPINGS.md](docs/compliance/COMPLIANCE_MAPPINGS.md)** | Detailed implementation mappings for NIST 800-53/800-207, CIS, ENS, DORA, and MITRE ATT&CK |
-| **[REGULATORY_REFERENCES.md](docs/compliance/REGULATORY_REFERENCES.md)** | Official authority domains and citation policy for standards references |
-| **[AUDIT_EVIDENCE.md](docs/compliance/AUDIT_EVIDENCE.md)** | Reproducible verification commands, lint gates, and audit evidence collection checklist |
-| **[ROADMAP.md](docs/project/ROADMAP.md)** | Priority roadmap by urgency (U0/U1/U2), current strengths, and future implementations |
-| **[CHANGELOG.md](docs/project/CHANGELOG.md)** | Version history and release notes (`v1.0.0` to `v4.3.0`) |
-| **[CONTRIBUTING.md](docs/project/CONTRIBUTING.md)** | Contribution guidelines, development setup, and code quality standards |
-| **[CODE_OF_CONDUCT.md](docs/project/CODE_OF_CONDUCT.md)** | Community guidelines and expected behavior |
-| **[RELEASE.md](docs/project/RELEASE.md)** | Version-agnostic release procedure aligned with `uv` and current QA gates |
+| **[COMPLIANCE.md](docs/compliance/COMPLIANCE.md)**                             | Executive multi-framework compliance overview grounded in implemented controls             |
+| **[COMPLIANCE_MAPPINGS.md](docs/compliance/COMPLIANCE_MAPPINGS.md)**           | Detailed implementation mappings for NIST 800-53/800-207, CIS, ENS, DORA, and MITRE ATT&CK |
+| **[REGULATORY_REFERENCES.md](docs/compliance/REGULATORY_REFERENCES.md)**       | Official authority domains and citation policy for standards references                    |
+| **[AUDIT_EVIDENCE.md](docs/compliance/AUDIT_EVIDENCE.md)**                     | Reproducible verification commands, lint gates, and audit evidence collection checklist    |
+| **[ROADMAP.md](docs/project/ROADMAP.md)**                                      | Priority roadmap by urgency (U0/U1/U2), current strengths, and future implementations      |
+| **[CHANGELOG.md](docs/project/CHANGELOG.md)**                                  | Version history and release notes (`v1.0.0` to `v4.3.0`)                                   |
+| **[CONTRIBUTING.md](docs/project/CONTRIBUTING.md)**                            | Contribution guidelines, development setup, and code quality standards                     |
+| **[CODE_OF_CONDUCT.md](docs/project/CODE_OF_CONDUCT.md)**                      | Community guidelines and expected behavior                                                 |
+| **[RELEASE.md](docs/project/RELEASE.md)**                                      | Version-agnostic release procedure aligned with `uv` and current QA gates                  |
 
 ---
+
 ## 📬 Contact & Brand
 
 **Maintained by:** Miguel Lozano — Cloud Infrastructure Engineer & FinOps Specialist
 **Brand:** Developmi | **GitHub:** [Miguel-DevOps](https://github.com/Miguel-DevOps)
 
-* **Website:** [developmi.com](https://developmi.com)
-* **Philosophy:** *Security is not a feature; it is the baseline.*
-* **Role:** Hybrid Cloud SRE & FinOps Architecture
-* **Inquiries:** Infrastructure Security & Cost Optimization Consulting
+- **Website:** [developmi.com](https://developmi.com)
+- **Philosophy:** _Security is not a feature; it is the baseline._
+- **Role:** Hybrid Cloud SRE & FinOps Architecture
+- **Inquiries:** Infrastructure Security & Cost Optimization Consulting
+
 ---
 
 © 2026 Miguel Lozano. All rights reserved.

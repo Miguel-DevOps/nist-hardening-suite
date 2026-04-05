@@ -41,7 +41,7 @@ recommended_apps/
 1. Copy the `.env.example` for the app you want to deploy and fill in all required variables (do not use real secrets in version control).
 2. Create persistent data directories as needed (see each app's compose and documentation).
 3. Deploy the app using Portainer or `docker compose`:
-    - `docker compose --env-file .env up -d`
+   - `docker compose --env-file .env up -d`
 4. Add a Caddy route to proxy the app's internal port on `public_net`.
 5. Complete any first-time setup via the app's web UI (never expose setup ports to the public internet).
 
@@ -86,4 +86,5 @@ recommended_apps/
 - Regularly review for security updates to base images and dependencies.
 
 ---
+
 Miguel Lozano, 2026

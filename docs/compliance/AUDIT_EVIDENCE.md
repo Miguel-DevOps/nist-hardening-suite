@@ -14,17 +14,20 @@ It focuses on implemented controls and quality gates, not legal certification la
 ## 2. Core Evidence Domains
 
 ### Control implementation evidence
+
 - Root playbook logic: `site.yml`, `stacks.yml`, `monitoring.yml`, `nuke.yml`.
 - Security role behavior: SSH, fail2ban, UFW, kernel hardening, auditd.
 - Zero Trust transport assertions for non-bootstrap operations.
 - Monitoring and detection behavior from CrowdSec and observability components.
 
 ### Configuration evidence
+
 - Inventory group model (`brain`, `muscle`) and host-level variables.
 - Global control variables in `group_vars/all`.
 - Environment-specific behavior in `group_vars/brain` and `group_vars/muscle`.
 
 ### Quality gate evidence
+
 - Ansible lint policy from `.ansible-lint`.
 - YAML lint policy from `.yamllint`.
 - Pre-commit controls from `.pre-commit-config.yaml`.
@@ -86,6 +89,7 @@ uv run ansible all -i inventory/hosts.ini -m shell -a "ls -lah /var/log/lynis"
 ```
 
 Expected artifacts include:
+
 - Lynis audit output logs.
 - Caddy-related AU-12 evidence export from auditd queries.
 

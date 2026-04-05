@@ -9,15 +9,18 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 ## How to Contribute
 
 ### Reporting Bugs
+
 - Use the GitHub Issues tracker.
 - Describe the bug in detail: steps to reproduce, expected behavior, actual behavior.
 - Include relevant logs, error messages, and system information.
 
 ### Suggesting Enhancements
+
 - Open an issue with the "enhancement" label.
 - Describe the feature, its use case, and potential implementation approach.
 
 ### Submitting Pull Requests
+
 1. Fork the repository.
 2. Create a feature branch (`git checkout -b feature/your-feature`).
 3. Make your changes, following the code style and conventions.
@@ -27,6 +30,7 @@ By participating in this project, you agree to abide by our [Code of Conduct](CO
 7. Push to your fork and open a pull request.
 
 Recommended commit prefixes:
+
 - `feat:` for backwards-compatible features
 - `fix:` for backwards-compatible fixes
 - `docs:` for documentation-only updates
@@ -37,6 +41,7 @@ Recommended commit prefixes:
 ## Development Setup
 
 ### Prerequisites
+
 - Ansible Core 2.16+
 - Python 3.12+
 - Docker (for testing container roles)
@@ -47,6 +52,7 @@ Recommended commit prefixes:
 ### Local Testing
 
 #### Install Development Environment
+
 ```bash
 # Install pre-commit hooks (runs linting on every commit)
 pip install pre-commit
@@ -55,12 +61,13 @@ pre-commit install
 # Install linting tools
 pip install ansible-core==2.17.0 ansible-lint==6.22.2 yamllint==1.35.1 detect-secrets==1.5.0
 
-# Install Ansible collections  
+# Install Ansible collections
 ansible-galaxy collection install -r requirements.yml
 ```
 
 #### Run Local Validation
-```bash
+
+````bash
 # Run all pre-commit hooks
 pre-commit run --all-files
 
@@ -89,13 +96,14 @@ If detect-secrets reports false positives (e.g., example values in comments), up
 ```bash
 detect-secrets scan --baseline .secrets.baseline --all-files
 git add .secrets.baseline
-```
-```
+````
+
+````
 
 #### Automated Testing with GitHub Actions
 All pull requests automatically trigger:
 1. **Ansible Lint** - Playbook quality checks
-2. **YAML Lint** - YAML syntax and style validation  
+2. **YAML Lint** - YAML syntax and style validation
 3. **Secret Detection** - Prevent credential commits
 4. **Security Audit** - NIST 800-53 control verification
 5. **Container Scanning** - Docker Compose security practices
@@ -136,15 +144,18 @@ portainer_edge_keys_by_node:
 # ✅ RIGHT - Use Ansible Vault
 ansible-vault encrypt group_vars/all/secrets.yml
 # Then reference: {{ portainer_edge_keys_by_node[inventory_hostname] }} (decrypted at runtime only)
-```
+````
 
 #### Secret Detection Automated Protection
+
 This repository uses `detect-secrets` to prevent accidental commits:
+
 - **Local pre-commit hooks** – Block commits with exposed secrets before they reach Git
 - **GitHub Actions CI** – Secondary check on every PR
 - **`.secrets.baseline`** – Configuration to ignore false positives (e.g., example values in docs)
 
 If you see "Potential secrets detected in commit" error:
+
 1. **Remove the secret** from the file immediately
 2. **Use Ansible Vault** to encrypt sensitive data:
    ```bash
@@ -156,6 +167,7 @@ If you see "Potential secrets detected in commit" error:
    ```
 
 ### Critical Requirements
+
 - **Never commit secrets or sensitive data** – detect-secrets runs on every commit
 - **Use Ansible Vault** for all encrypted variables (`ansible-vault encrypt`)
 - **Validate all inputs** and use secure defaults
@@ -164,7 +176,9 @@ If you see "Potential secrets detected in commit" error:
 - **Document security decisions** – explain why choices were made
 
 ### NIST 800-53 Compliance
+
 All code contributions must maintain compliance with implemented NIST controls:
+
 - **AC-2** (Account Management): SSH hardening, password policies
 - **CM-7** (Least Functionality): Disable unnecessary services/modules
 - **SC-7** (Boundary Protection): Firewall rules, network isolation
@@ -173,6 +187,7 @@ All code contributions must maintain compliance with implemented NIST controls:
 - **SC-28** (Data at Rest): Vault encryption required
 
 ### Container Security Standards
+
 - All containers must have `security_opt: [no-new-privileges:true]`
 - Docker socket mounts are high-risk and must only be used when operationally required, with explicit risk documentation
 - Containers should run as unprivileged users (uid 65534 minimum)
@@ -180,12 +195,14 @@ All code contributions must maintain compliance with implemented NIST controls:
 - Never run as root unless architecturally necessary
 
 ## Review Process
+
 - All pull requests require at least one maintainer review.
 - Changes must pass CI checks (ansible-lint, yamllint).
 - Documentation updates are required for new features.
 - Breaking changes require major version updates.
 
 ## Questions?
+
 Feel free to reach out via GitHub Issues or discussions.
 
 Thank you for helping make this project better!
