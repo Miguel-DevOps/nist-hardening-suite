@@ -42,66 +42,67 @@ Recommended commit prefixes:
 
 ### Prerequisites
 
-- Ansible Core 2.16+
-- Python 3.12+
+- Python 3.14+
+- uv
 - Docker (for testing container roles)
 - Pre-commit hooks
-- ansible-lint 6.22+
-- yamllint 1.35+
+- GNU Make
 
 ### Local Testing
 
 #### Install Development Environment
 
 ```bash
-# Install pre-commit hooks (runs linting on every commit)
-pip install pre-commit
-pre-commit install
+# Sync local toolchain
+make sync
 
-# Install linting tools
-pip install ansible-core==2.17.0 ansible-lint==6.22.2 yamllint==1.35.1 detect-secrets==1.5.0
+# Install required Ansible collections
+make install-collections
 
-# Install Ansible collections
-ansible-galaxy collection install -r requirements.yml
+# Install pre-commit hooks
+make precommit-install
 ```
 
 #### Run Local Validation
 
 ````bash
 # Run all pre-commit hooks
-pre-commit run --all-files
+make precommit-run
 
 # OR run individual checks:
 
-# Ansible-lint (playbook quality)
-ansible-lint stacks.yml monitoring.yml nuke.yml
+# Strict lint gate for selected playbook
+make lint PLAYBOOK=site.yml
 
-# YAML validation
-yamllint .
+# Validate setup and playbook syntax checks
+make validate
 
-# Secret detection (CRITICAL - prevents accidental secret commits)
-detect-secrets scan --baseline .secrets.baseline
+# Compliance evidence-only execution
+make compliance
+
+# Targeted deployments
+make deploy-tags PLAYBOOK=site.yml ANSIBLE_TAGS='nist,sc-7'
 
 # Playbook syntax check
-ansible-playbook --syntax-check stacks.yml
+make dry-run PLAYBOOK=stacks.yml
 
 # Inventory validation
-ansible-inventory -i inventory/hosts.ini --list > /dev/null
+make show-inventory
 
 # Test playbook structure (dry-run with check mode)
-ansible-playbook -i inventory/hosts.ini stacks.yml --check --ask-vault-pass
+make dry-run PLAYBOOK=stacks.yml
 
 # Secret Detection Baseline
 If detect-secrets reports false positives (e.g., example values in comments), update the baseline:
 ```bash
-detect-secrets scan --baseline .secrets.baseline --all-files
+uv run detect-secrets scan --baseline .secrets.baseline $(git ls-files)
 git add .secrets.baseline
 ````
 
-````
-
 #### Automated Testing with GitHub Actions
+
 All pull requests automatically trigger:
+
 1. **Ansible Lint** - Playbook quality checks
 2. **YAML Lint** - YAML syntax and style validation
 3. **Secret Detection** - Prevent credential commits
@@ -114,17 +115,20 @@ See `.github/workflows/` for workflow definitions.
 ## Code Style and Conventions
 
 ### Ansible Best Practices
+
 - Use `ansible.builtin` modules when possible.
 - Keep roles focused and single-purpose.
 - Use meaningful variable names with descriptive comments.
 - Follow Ansible Galaxy metadata standards.
 
 ### YAML Formatting
+
 - Use 2-space indentation.
 - Use consistent spacing around colons and dashes.
 - Keep line length under 100 characters where possible.
 
 ### Documentation
+
 - Update README.md when adding new features.
 - Document new variables in `group_vars/all/secrets.yml.example`.
 - Include inline comments for complex logic.
@@ -136,6 +140,7 @@ See `.github/workflows/` for workflow definitions.
 **Critical Rule: NEVER commit real secrets to any branch.**
 
 #### Handling Secrets Correctly
+
 ```bash
 # ❌ WRONG - This exposes the secret
 portainer_edge_keys_by_node:
@@ -144,7 +149,7 @@ portainer_edge_keys_by_node:
 # ✅ RIGHT - Use Ansible Vault
 ansible-vault encrypt group_vars/all/secrets.yml
 # Then reference: {{ portainer_edge_keys_by_node[inventory_hostname] }} (decrypted at runtime only)
-````
+```
 
 #### Secret Detection Automated Protection
 
@@ -159,11 +164,11 @@ If you see "Potential secrets detected in commit" error:
 1. **Remove the secret** from the file immediately
 2. **Use Ansible Vault** to encrypt sensitive data:
    ```bash
-   ansible-vault encrypt group_vars/all/secrets.yml --vault-password-file ~/.vault_pass
+   make vault-encrypt
    ```
 3. **Update baseline** if it's a legitimate false positive:
    ```bash
-   detect-secrets scan --baseline .secrets.baseline --all-files
+   uv run detect-secrets scan --baseline .secrets.baseline $(git ls-files)
    ```
 
 ### Critical Requirements

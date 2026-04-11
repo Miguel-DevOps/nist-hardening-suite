@@ -1,5 +1,15 @@
 # Changelog
 
+## [5.0.3] - 2026-04-06
+
+### Fixes
+
+- **SC-7 network isolation hardening**: removed direct host port publishing for internal services in `recommended_apps/n8n/docker-compose.yml`, `roles/stack_portainer/templates/portainer-server.yml.j2`, and `roles/observability/templates/observability-stack-docker-compose.yml.j2` to reduce WAF bypass risk.
+- **AU-12/SI-4 CrowdSec visibility via POSIX ACL**: `roles/stack_ingress/tasks/main.yml` now installs `acl`, detects the `crowdsec` account, and applies explicit ACLs (including default ACLs) on `/var/log/caddy` and `/var/log/caddy/access.log` so host-level CrowdSec can read remapped Docker logs.
+- **AC-2 Caddy persistence ownership normalization**: ingress now enforces recursive ownership on `caddy-data` and `caddy-config` using effective remapped UID/GID to prevent runtime `permission denied` on `/data` and `/config`.
+- **HTTP/3 runtime sysctl enforcement**: ingress QUIC tuning now sets and reloads runtime kernel values for `net.core.wmem_max` and `net.core.rmem_max` at `7500000`.
+- **CrowdSec health monitor strengthened**: `scripts/monitor-crowdsec.sh` now requires both `crowdsecurity/linux` and `crowdsecurity/caddy` collections.
+
 ## [5.0.2] - 2026-04-04
 
 ### Refactor

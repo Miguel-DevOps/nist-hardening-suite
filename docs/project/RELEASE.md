@@ -14,10 +14,10 @@ Run this exact block locally before creating and pushing a tag:
 
 ```bash
 # 1. Sync local toolchain
-uv sync
+make sync
 
-# 2. Validate detect-secrets baseline
-uv run detect-secrets scan --baseline .secrets.baseline > /dev/null
+# 2. Validate detect-secrets baseline (tracked files only)
+uv run detect-secrets scan --baseline .secrets.baseline $(git ls-files) > /dev/null
 
 # 3. Ensure encrypted runtime secrets are not tracked
 if git ls-files --error-unmatch group_vars/all/secrets.yml >/dev/null 2>&1; then
@@ -41,25 +41,25 @@ Keeping the same commands locally prevents most remote tag audit failures.
 
 ```bash
 # 1. Run full CI/CD pipeline
-uv run pre-commit run --all-files
+make precommit-run
 
 # 2. Verify no secrets in codebase
-uv run detect-secrets scan --baseline .secrets.baseline
+uv run detect-secrets scan --baseline .secrets.baseline $(git ls-files)
 
 # 3. Lint playbooks & YAML
-uv run ansible-lint site.yml stacks.yml monitoring.yml nuke.yml
-uv run yamllint -c .yamllint .
+make lint PLAYBOOK=site.yml
+make lint PLAYBOOK=stacks.yml
+make lint PLAYBOOK=monitoring.yml
+make lint PLAYBOOK=nuke.yml
 
 # 4. Syntax validation
-uv run ansible-playbook --syntax-check site.yml
-uv run ansible-playbook --syntax-check stacks.yml
-uv run ansible-playbook --syntax-check monitoring.yml
+make validate
 uv run ansible-playbook --syntax-check nuke.yml
 uv run ansible-inventory -i inventory/hosts.ini --list > /dev/null
 
 # 5. Idempotence test (run twice, both should be identical)
-uv run ansible-playbook -i inventory/hosts.ini stacks.yml --check --ask-vault-pass
-uv run ansible-playbook -i inventory/hosts.ini stacks.yml --check --ask-vault-pass
+make dry-run PLAYBOOK=stacks.yml
+make dry-run PLAYBOOK=stacks.yml
 ```
 
 GitHub Actions will automatically run the security audit on version tags.

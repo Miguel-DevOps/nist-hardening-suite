@@ -36,21 +36,25 @@ It focuses on implemented controls and quality gates, not legal certification la
 
 ## 3. Recommended Verification Commands
 
-Use `uv run` to ensure reproducible local tooling paths.
+Use Make targets as the primary operator interface.
 
 ```bash
-# Syntax checks for root playbooks
-uv run ansible-playbook --syntax-check site.yml
-uv run ansible-playbook --syntax-check stacks.yml
-uv run ansible-playbook --syntax-check monitoring.yml
-uv run ansible-playbook --syntax-check nuke.yml
+# Sync and validate baseline tooling
+make sync
+make install-collections
+make validate
 
 # Lint policy checks
-uv run ansible-lint site.yml stacks.yml monitoring.yml nuke.yml
-uv run yamllint -c .yamllint .
+make lint PLAYBOOK=site.yml
+make lint PLAYBOOK=stacks.yml
+make lint PLAYBOOK=monitoring.yml
+make lint PLAYBOOK=nuke.yml
 
 # Optional: pre-commit full run
-uv run pre-commit run --all-files
+make precommit-run
+
+# Detect-secrets baseline check (tracked files only)
+uv run detect-secrets scan --baseline .secrets.baseline $(git ls-files)
 ```
 
 ---
@@ -59,10 +63,13 @@ uv run pre-commit run --all-files
 
 ```bash
 # Tailscale status and node identity
-uv run ansible all -i inventory/hosts.ini -m command -a "tailscale status"
+make verify-tailscale
 
 # CrowdSec alerts and posture
-uv run ansible all -i inventory/hosts.ini -m shell -a "cscli alerts list"
+make verify-crowdsec
+
+# Last audit logs
+make verify-auditd
 
 # auditd rules currently active
 uv run ansible all -i inventory/hosts.ini -m command -a "auditctl -l"
@@ -82,7 +89,7 @@ The `compliance` role runs Lynis and exports daily evidence files under `/var/lo
 
 ```bash
 # Run compliance evidence collection
-uv run ansible-playbook -i inventory/hosts.ini site.yml --tags compliance --ask-vault-pass
+make compliance
 
 # Retrieve generated evidence paths
 uv run ansible all -i inventory/hosts.ini -m shell -a "ls -lah /var/log/lynis"
