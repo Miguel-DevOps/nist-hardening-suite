@@ -15,7 +15,7 @@
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
-# 0. USUARIO DE SERVICIO DEDICADO (AC-2 | NIST 800-53)
+# USUARIO DE SERVICIO DEDICADO (AC-2 | NIST 800-53)
 # ------------------------------------------------------------------------------
 - name: Preflight | Assert Caddy UID/GID are aligned with caddy-waf image
   ansible.builtin.assert:
@@ -59,9 +59,51 @@
     comment: "Caddy web server service account"
   tags: [nist, ac-2]
 
-# ------------------------------------------------------------------------------
-# 1. PREPARAR DIRECTORIO Y ARCHIVOS
-# ------------------------------------------------------------------------------
+- name: AU-12/SI-4 | Detect Docker userns-remap to compute bind-mount ownership
+  ansible.builtin.command:
+    cmd: "docker info --format '{{ '{{' }}json .SecurityOptions{{ '}}' }}'" # noqa: command-instead-of-module
+  register: _docker_security_opts
+  changed_when: false
+  failed_when: false
+  tags: [nist, au-12, si-4]
+
+- name: AU-12/SI-4 | Read dockremap subuid offset (only when userns-remap is active)
+  ansible.builtin.slurp:
+    src: /etc/subuid
+  register: _subuid_file
+  when: "'name=userns' in (_docker_security_opts.stdout | default(''))"
+  tags: [nist, au-12, si-4]
+
+- name: AU-12/SI-4 | Parse dockremap subuid offset
+  ansible.builtin.set_fact:
+    _dockremap_subuid_offset:
+      stdout: >-
+        {{
+          (_subuid_file.content | b64decode).split('\n')
+          | select('match', '^dockremap:')
+          | first | default('')
+          | regex_replace('^dockremap:([^:]+):.*$', '\1')
+        }}
+  when: "'name=userns' in (_docker_security_opts.stdout | default(''))"
+  tags: [nist, au-12, si-4]
+
+- name: AU-12/SI-4 | Resolve effective host UID/GID for bind-mounts
+  ansible.builtin.set_fact:
+    _caddy_effective_uid: "{{ (_dockremap_subuid_offset.stdout | default('0') | int) + (caddy_user_uid | int) }}"
+    _caddy_effective_gid: "{{ (_dockremap_subuid_offset.stdout | default('0') | int) + (caddy_user_gid | int) }}"
+  tags: [nist, au-12, si-4]
+
+- name: Optimize network UDP buffers for Caddy (HTTP/3)
+  ansible.posix.sysctl:
+    name: "{{ item }}"
+    value: '7500000'
+    sysctl_set: true
+    state: present
+    reload: true
+  loop:
+    - net.core.rmem_max
+    - net.core.wmem_max
+
 - name: CM-7/SC-28 | Ensure Caddy host directories exist with least-privilege ownership
   ansible.builtin.file:
     path: "{{ item.path }}"
@@ -98,53 +140,40 @@
     path: "{{ app_base_dir }}/ingress/{{ item }}"
     state: directory
     mode: "0755"
-    owner: "{{ caddy_user_uid }}"
-    group: "{{ caddy_user_gid }}"
+    owner: "{{ _caddy_effective_uid }}"
+    group: "{{ _caddy_effective_gid }}"
   loop:
     - "caddy-data"
     - "caddy-config"
     - "certs"
 
-# Detect userns-remap so bind-mount files are owned by the remapped UID.
-# With 'userns-remap: default', container UID X maps to host UID (subuid_base + X).
-# Owning the log dir/file as the REMAPPED UID lets the container process write to it.
-- name: AU-12/SI-4 | Detect Docker userns-remap to compute bind-mount ownership
-  ansible.builtin.command:
-    cmd: "docker info --format '{{ '{{' }}json .SecurityOptions{{ '}}' }}'"
-  register: _docker_security_opts
-  changed_when: false
-  failed_when: false
-  tags: [nist, au-12, si-4]
-
-- name: AU-12/SI-4 | Read dockremap subuid offset (only when userns-remap is active)
-  ansible.builtin.command:
-    cmd: "awk -F: '/^dockremap:/{print $2; exit}' /etc/subuid"
-  register: _dockremap_subuid_offset
-  changed_when: false
-  when: "'name=userns' in (_docker_security_opts.stdout | default(''))"
-  tags: [nist, au-12, si-4]
-
-- name: AU-12/SI-4 | Resolve effective host UID/GID for Caddy log bind-mount
-  ansible.builtin.set_fact:
-    _caddy_log_uid: "{{ (_dockremap_subuid_offset.stdout | default('0') | int) + (caddy_user_uid | int) }}"
-    _caddy_log_gid: "{{ (_dockremap_subuid_offset.stdout | default('0') | int) + (caddy_user_gid | int) }}"
-  tags: [nist, au-12, si-4]
+- name: AC-2 | Normalize Caddy runtime data directory ownership recursively
+  ansible.builtin.file:
+    path: "{{ app_base_dir }}/ingress/{{ item }}"
+    state: directory
+    owner: "{{ _caddy_effective_uid }}"
+    group: "{{ _caddy_effective_gid }}"
+    recurse: true
+  loop:
+    - "caddy-data"
+    - "caddy-config"
+  tags: [nist, ac-2]
 
 - name: AU-12/SI-4 | Create Caddy host log directory (for CrowdSec and AuditD)
   ansible.builtin.file:
     path: /var/log/caddy
     state: directory
     mode: "0750"
-    owner: "{{ _caddy_log_uid }}"
-    group: "{{ _caddy_log_gid }}"
+    owner: "{{ _caddy_effective_uid }}"
+    group: "{{ _caddy_effective_gid }}"
   tags: [nist, au-12, si-4]
 
 - name: AU-12/SI-4 | Normalize Caddy log directory ownership recursively
   ansible.builtin.file:
     path: /var/log/caddy
     state: directory
-    owner: "{{ _caddy_log_uid }}"
-    group: "{{ _caddy_log_gid }}"
+    owner: "{{ _caddy_effective_uid }}"
+    group: "{{ _caddy_effective_gid }}"
     recurse: true
   tags: [nist, au-12, si-4]
 
@@ -153,8 +182,105 @@
     path: /var/log/caddy/access.log
     state: touch
     mode: "0640"
-    owner: "{{ _caddy_log_uid }}"
-    group: "{{ _caddy_log_gid }}"
+    owner: "{{ _caddy_effective_uid }}"
+    group: "{{ _caddy_effective_gid }}"
+  tags: [nist, au-12, si-4]
+
+- name: AU-12/SI-4 | Ensure ACL tooling is installed for log access controls
+  ansible.builtin.apt:
+    name: acl
+    state: present
+    lock_timeout: 600
+  tags: [nist, au-12, si-4]
+
+- name: AU-12/SI-4 | Detect canonical crowdsec account
+  ansible.builtin.getent:
+    database: passwd
+    key: crowdsec
+    fail_key: false
+  register: crowdsec_user_getent
+  tags: [nist, au-12, si-4]
+- name: AU-12/SI-4 | Find CrowdSec systemd unit file
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /etc/systemd/system/crowdsec.service
+    - /lib/systemd/system/crowdsec.service
+    - /usr/lib/systemd/system/crowdsec.service
+  register: _crowdsec_unit_stat
+  tags: [nist, au-12, si-4]
+- name: AU-12/SI-4 | Read CrowdSec systemd unit file
+  ansible.builtin.slurp:
+    src: "{{ (_crowdsec_unit_stat.results | selectattr('stat.exists') | first).item }}"
+  register: _crowdsec_unit_content
+  when: _crowdsec_unit_stat.results | selectattr('stat.exists') | list | length > 0
+  tags: [nist, au-12, si-4]
+- name: AU-12/SI-4 | Detect runtime CrowdSec service user
+  ansible.builtin.set_fact:
+    crowdsec_service_user_cmd:
+      stdout: >-
+        {{
+          (_crowdsec_unit_content.content | default('') | b64decode)
+          | regex_search('(?m)^User=(.+)$', '\1')
+          | first | default('')
+        }}
+  tags: [nist, au-12, si-4]
+
+- name: AU-12/SI-4 | Resolve ACL target user for CrowdSec log access
+  ansible.builtin.set_fact:
+    crowdsec_acl_user: >-
+      {{
+        'crowdsec'
+        if (crowdsec_user_getent.ansible_facts.getent_passwd | default({})).get('crowdsec') is not none
+        else (
+          (crowdsec_service_user_cmd.stdout | default('') | trim)
+          if (
+            (crowdsec_service_user_cmd.stdout | default('') | trim | length > 0)
+            and (crowdsec_service_user_cmd.stdout | default('') | trim != 'root')
+          )
+          else ''
+        )
+      }}
+  tags: [nist, au-12, si-4]
+
+- name: AU-12/SI-4 | Ensure CrowdSec can traverse and read Caddy logs directory
+  ansible.posix.acl:
+    path: /var/log/caddy
+    etype: user
+    entity: "{{ crowdsec_acl_user }}"
+    permissions: rX
+    state: present
+    recursive: true
+  when: crowdsec_acl_user | length > 0
+  tags: [nist, au-12, si-4]
+
+- name: AU-12/SI-4 | Ensure default ACLs preserve CrowdSec read access on rotated logs
+  ansible.posix.acl:
+    path: /var/log/caddy
+    etype: user
+    entity: "{{ crowdsec_acl_user }}"
+    permissions: rX
+    default: true
+    state: present
+  when: crowdsec_acl_user | length > 0
+  tags: [nist, au-12, si-4]
+
+- name: AU-12/SI-4 | Ensure CrowdSec can read current Caddy access log file
+  ansible.posix.acl:
+    path: /var/log/caddy/access.log
+    etype: user
+    entity: "{{ crowdsec_acl_user }}"
+    permissions: r--
+    state: present
+  when: crowdsec_acl_user | length > 0
+  tags: [nist, au-12, si-4]
+
+- name: AU-12/SI-4 | Warn when CrowdSec user is missing and ACLs cannot be applied
+  ansible.builtin.debug:
+    msg: >-
+      CrowdSec runs as root or no dedicated non-root service account was detected on {{ inventory_hostname }}.
+      Skipping explicit user ACL grants on /var/log/caddy.
+  when: crowdsec_acl_user | length == 0
   tags: [nist, au-12, si-4]
 
 - name: Validate Caddyfile.j2 presence
@@ -224,9 +350,6 @@
     owner: root
     group: root
 
-# ------------------------------------------------------------------------------
-# 2. AUTENTICACIÓN CON GITHUB CONTAINER REGISTRY
-# ------------------------------------------------------------------------------
 - name: Login to GitHub Container Registry (GHCR)
   community.docker.docker_login:
     registry_url: ghcr.io
@@ -235,9 +358,6 @@
     reauthorize: true
   no_log: true
 
-# ------------------------------------------------------------------------------
-# 3. VERIFICACIÓN DE INTEGRIDAD DE IMAGEN (Supply Chain Security)
-# ------------------------------------------------------------------------------
 - name: Verify Caddy image digest if specified
   community.docker.docker_image_info:
     name: "{{ caddy_image }}"
@@ -252,9 +372,6 @@
     - caddy_image_info.image.Digest is defined
     - caddy_image_info.image.Digest != caddy_image_digest
 
-# ------------------------------------------------------------------------------
-# 4. DESPLEGAR CON DOCKER COMPOSE V2
-# ------------------------------------------------------------------------------
 - name: Deploy Caddy Ingress Stack with Docker Compose
   block:
     - name: Run docker compose up
@@ -269,7 +386,7 @@
   rescue:
     - name: Capture Caddy container startup logs
       ansible.builtin.command:
-        cmd: docker logs --tail 100 caddy-waf
+        cmd: docker logs --tail 100 caddy-waf # noqa: command-instead-of-module
       register: caddy_crash_logs
       changed_when: false
       failed_when: false
@@ -288,9 +405,6 @@
           Caddy stack deployment failed — see 'Show Caddy startup logs for diagnosis'
           above for the root cause.
 
-# ------------------------------------------------------------------------------
-# 4. VALIDAR DESPLIEGUE
-# ------------------------------------------------------------------------------
 - name: Get Caddy container info
   community.docker.docker_container_info:
     name: caddy-waf
@@ -333,9 +447,6 @@
     - caddy_health.container.State.Health is defined
     - caddy_health.container.State.Health.Status == 'healthy'
 
-# ------------------------------------------------------------------------------
-# 5. SUMMARY
-# ------------------------------------------------------------------------------
 - name: Display Caddy Ingress deployment summary
   ansible.builtin.debug:
     msg:
