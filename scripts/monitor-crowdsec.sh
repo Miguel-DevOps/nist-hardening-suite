@@ -24,10 +24,26 @@ LOG_FILE="/var/log/crowdsec.log"
 MAX_ALERTS_AGE_HOURS=24
 
 require_uv() {
-    if ! command -v uv &> /dev/null; then
-        print_status "ERROR" "uv is not installed"
-        return 1
+    if command -v uv &> /dev/null; then
+        return 0
     fi
+
+    if command -v python3 &> /dev/null; then
+        print_status "INFO" "uv is not installed, falling back to python3"
+        return 0
+    fi
+
+    print_status "ERROR" "Neither uv nor python3 is available"
+    return 1
+}
+
+json_len() {
+    if command -v uv &> /dev/null; then
+        uv run python -c 'import json,sys; data=json.load(sys.stdin); print(len(data))' 2>/dev/null
+        return $?
+    fi
+
+    python3 -c 'import json,sys; data=json.load(sys.stdin); print(len(data))' 2>/dev/null
 }
 
 # Functions
@@ -80,7 +96,7 @@ check_alerts() {
     local alerts_count
     alerts_count=$(
         "$CSCLI_PATH" alerts list -o json 2>/dev/null \
-            | uv run python -c 'import json,sys; data=json.load(sys.stdin); print(len(data))' 2>/dev/null \
+            | json_len \
             || echo "0"
     )
 
@@ -108,13 +124,25 @@ check_bouncer() {
 }
 
 check_collections() {
-    local collections
-    collections=$($CSCLI_PATH collections list 2>/dev/null | grep -c "crowdsecurity/linux" || echo "0")
+    local collections_raw
+    local has_linux=0
+    local has_caddy=0
 
-    if [[ "$collections" -gt 0 ]]; then
-        print_status "OK" "Security collections installed"
+    collections_raw=$($CSCLI_PATH collections list 2>/dev/null || true)
+
+    if echo "$collections_raw" | grep -q "crowdsecurity/linux"; then
+        has_linux=1
+    fi
+
+    if echo "$collections_raw" | grep -q "crowdsecurity/caddy"; then
+        has_caddy=1
+    fi
+
+    if [[ "$has_linux" -eq 1 && "$has_caddy" -eq 1 ]]; then
+        print_status "OK" "Required collections installed (crowdsecurity/linux + crowdsecurity/caddy)"
     else
-        print_status "WARNING" "No security collections installed"
+        print_status "WARNING" "Missing required CrowdSec collections (need crowdsecurity/linux and crowdsecurity/caddy)"
+        return 1
     fi
 }
 
@@ -122,7 +150,7 @@ check_decisions() {
     local decisions_count
     decisions_count=$(
         "$CSCLI_PATH" decisions list -o json 2>/dev/null \
-            | uv run python -c 'import json,sys; data=json.load(sys.stdin); print(len(data))' 2>/dev/null \
+            | json_len \
             || echo "0"
     )
 
