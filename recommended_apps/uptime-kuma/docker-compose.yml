@@ -2,7 +2,6 @@
 services:
   uptime-kuma:
     image: ${UPTIME_KUMA_IMAGE:-louislam/uptime-kuma:2.0.2}
-    container_name: uptime-kuma
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -23,3 +22,6 @@ services:
 networks:
   public_net:
     external: true
+
+volumes:
+  uptime_kuma_data: {}

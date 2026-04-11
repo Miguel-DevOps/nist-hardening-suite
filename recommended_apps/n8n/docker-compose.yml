@@ -1,12 +1,28 @@
----
+x-n8n-env: &n8n_env
+  - N8N_HOST=${N8N_HOST}
+  - N8N_PORT=5678
+  - N8N_PROTOCOL=${N8N_PROTOCOL:-https}
+  - N8N_EDITOR_BASE_URL=${N8N_EDITOR_BASE_URL}
+  - WEBHOOK_URL=${WEBHOOK_URL}
+  - N8N_PROXY_HOPS=${N8N_PROXY_HOPS:-1}
+  - EXECUTIONS_MODE=${EXECUTIONS_MODE:-queue}
+  - QUEUE_BULL_REDIS_HOST=${N8N_REDIS_HOST}
+  - QUEUE_BULL_REDIS_PORT=${N8N_REDIS_PORT}
+  - QUEUE_BULL_REDIS_PASSWORD=${N8N_REDIS_PASSWORD}
+  - DB_TYPE=${N8N_DB_TYPE}
+  - DB_POSTGRESDB_HOST=${N8N_DB_POSTGRESDB_HOST}
+  - DB_POSTGRESDB_PORT=${N8N_DB_POSTGRESDB_PORT}
+  - DB_POSTGRESDB_DATABASE=${N8N_DB_POSTGRESDB_DATABASE}
+  - DB_POSTGRESDB_USER=${N8N_DB_POSTGRESDB_USER}
+  - DB_POSTGRESDB_PASSWORD=${N8N_DB_POSTGRESDB_PASSWORD}
+  - N8N_BASIC_AUTH_ACTIVE=${N8N_BASIC_AUTH_ACTIVE}
+  - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
+  - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
+
 services:
   n8n:
-    image: n8nio/n8n:2.15.0 # Latest stable version in March 2026
+    image: n8nio/n8n:2.15.0
     restart: unless-stopped
-    env_file:
-      - .env
-    ports:
-      - "5678:5678"
     depends_on:
       postgres:
         condition: service_healthy
@@ -14,11 +30,12 @@ services:
         condition: service_healthy
     volumes:
       - n8n_data:/home/node/.n8n
+    environment: *n8n_env
     networks:
       - n8n_internal
       - public_net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5678/healthz"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5678/healthz || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -26,8 +43,6 @@ services:
   n8n-worker:
     image: n8nio/n8n:2.15.0
     restart: unless-stopped
-    env_file:
-      - .env
     depends_on:
       postgres:
         condition: service_healthy
@@ -36,6 +51,7 @@ services:
     command: worker
     volumes:
       - n8n_data:/home/node/.n8n
+    environment: *n8n_env
     networks:
       - n8n_internal
 
@@ -74,6 +90,7 @@ volumes:
   n8n_data: {}
   postgres_data: {}
   valkey_data: {}
+
 networks:
   public_net:
     external: true

@@ -16,8 +16,6 @@ services:
       - '--httpListenAddr=:8428'
     networks:
       - {{ observability_stack_network_name }}
-    ports:
-      - "${HOST_IP}:${VICTORIA_PORT}"
 
   # ----------------------------------------------------------------
   # LOKI
@@ -32,8 +30,6 @@ services:
     command: -config.file=/etc/loki/local-config.yaml
     networks:
       - {{ observability_stack_network_name }}
-    ports:
-      - "${HOST_IP}:${LOKI_PORT}"
 
   # ----------------------------------------------------------------
   # GRAFANA
@@ -52,8 +48,6 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
     networks:
       - {{ observability_stack_network_name }}
-    ports:
-      - "${HOST_IP}:${GRAFANA_PORT}"
 
 networks:
   {{ observability_stack_network_name }}:

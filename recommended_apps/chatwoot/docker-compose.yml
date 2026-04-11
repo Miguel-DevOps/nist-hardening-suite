@@ -1,4 +1,3 @@
----
 x-chatwoot-env: &chatwoot_env
   - FRONTEND_URL=${CHATWOOT_FRONTEND_URL}
   - SECRET_KEY_BASE=${CHATWOOT_SECRET_KEY_BASE}
@@ -16,7 +15,6 @@ x-chatwoot-env: &chatwoot_env
 
 services:
   chatwoot-db:
-    # Recuerda que en tu .env ahora es pgvector/pgvector:pg17
     image: ${CHATWOOT_DB_IMAGE:-pgvector/pgvector:pg17}
     restart: unless-stopped
     environment:
@@ -28,12 +26,11 @@ services:
     networks:
       - chatwoot_net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${CHATWOOT_DB_USER} -d chatwoot_production"]
       interval: 10s
       timeout: 5s
-      retries: 5
-  # After run "docker compose up -d" execute:
-  # docker compose run --rm chatwoot-web bundle exec rails db:chatwoot_prepare
+      retries: 10
+
   chatwoot-valkey:
     image: ${CHATWOOT_VALKEY_IMAGE:-valkey/valkey:9.0.3}
     restart: unless-stopped
@@ -51,8 +48,6 @@ services:
   chatwoot-web:
     image: ${CHATWOOT_IMAGE:-chatwoot/chatwoot:v4.12.1}
     restart: unless-stopped
-    ports:
-      - "3000:3000"
     depends_on:
       chatwoot-db:
         condition: service_healthy
@@ -72,13 +67,14 @@ services:
       timeout: 5s
       retries: 5
 
+    # Manual DB bootstrap (run once after the stack is up):
+    # docker compose exec chatwoot-web bundle exec rails db:chatwoot_prepare
+
   chatwoot-worker:
     image: ${CHATWOOT_IMAGE:-chatwoot/chatwoot:v4.12.1}
     restart: unless-stopped
     depends_on:
-      chatwoot-db:
-        condition: service_healthy
-      chatwoot-valkey:
+      chatwoot-web:
         condition: service_healthy
     entrypoint: docker/entrypoints/rails.sh
     command: ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml"]
@@ -97,6 +93,7 @@ volumes:
   chatwoot_db_data: {}
   chatwoot_valkey_data: {}
   chatwoot_storage: {}
+
 networks:
   public_net:
     external: true
