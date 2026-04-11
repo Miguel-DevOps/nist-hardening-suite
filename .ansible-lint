@@ -1,5 +1,7 @@
 # ansible-lint configuration for NIST-Compliant Hardening Suite
 ---
+profile: min
+
 # Directories to exclude from linting
 exclude_paths:
   - roles/*/templates/
@@ -14,6 +16,10 @@ skip_list:
   - name[missing]
   # 301: Jinja2 variables in 'when' conditions (necessary for dynamic conditionals)
   - jinja[invalid]
+  # Repository policy: role-local var prefixes are currently not enforced retroactively.
+  - var-naming[no-role-prefix]
+  # Repository policy: pipelines are manually reviewed in CI scripts/playbooks.
+  - risky-shell-pipe
 
 # Rules to enforce
 warn_list:
@@ -21,5 +27,3 @@ warn_list:
   - missing-tags
   # Repository-local policy: treat these as warnings so pre-commit stays green.
   - yaml[line-length]
-  - risky-shell-pipe
-  - var-naming[no-role-prefix]

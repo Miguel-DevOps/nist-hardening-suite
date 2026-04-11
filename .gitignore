@@ -180,6 +180,41 @@ temp/
 .pnpm/
 node_modules/
 
+# Python caches and test artifacts
+__pycache__/
+*.py[cod]
+*.pyd
+*.py,cover
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.ipynb_checkpoints/
+
+# Ansible and workflow scratch files
+*.retry
+.ansible/
+
+# Local editor / tooling metadata
+.python-version
+.direnv/
+.cache/
+
+# Generic build artifacts
+dist/
+build/
+*.egg-info/
+
+# Docker and compose runtime artifacts
+*.pid
+*.seed
+*.cid
+
 # Ignore Caddyfile.j2 (user-specific config)
 roles/stack_ingress/templates/Caddyfile.j2
 

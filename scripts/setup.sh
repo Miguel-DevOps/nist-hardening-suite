@@ -145,7 +145,7 @@ setup_secrets() {
         chmod 600 group_vars/all/secrets.yml
 
         print_warning "Secrets file created but NOT encrypted"
-        print_info "To encrypt: uv run ansible-vault encrypt group_vars/all/secrets.yml"
+        print_info "To encrypt: make vault-encrypt"
         print_info "Required secrets:"
         echo "  - vault_github_token (GitHub Personal Access Token)"
         echo "  - tailscale_auth_key (Tailscale OAuth client secret for node join)"
@@ -197,7 +197,7 @@ validate_secrets() {
     else
         print_warning "secrets.yml not found"
         print_info "Copy the example: cp group_vars/all/secrets.yml.example group_vars/all/secrets.yml"
-        print_info "Then encrypt it: uv run ansible-vault encrypt group_vars/all/secrets.yml"
+        print_info "Then encrypt it: make vault-encrypt"
     fi
 }
 
@@ -206,11 +206,11 @@ show_next_steps() {
 
     echo -e "${GREEN}1.${NC} Edit inventory/hosts.ini with your server IPs"
     echo -e "${GREEN}2.${NC} Configure secrets:"
-    echo -e "   ${BLUE}uv run ansible-vault edit group_vars/all/secrets.yml${NC}"
+    echo -e "   ${BLUE}make vault-edit${NC}"
     echo -e "${GREEN}3.${NC} Run full hardening:"
-    echo -e "   ${BLUE}uv run ansible-playbook -i inventory/hosts.ini site.yml --ask-vault-pass${NC}"
+    echo -e "   ${BLUE}make deploy${NC}"
     echo -e "${GREEN}4.${NC} Deploy applications:"
-    echo -e "   ${BLUE}uv run ansible-playbook -i inventory/hosts.ini stacks.yml --ask-vault-pass${NC}"
+    echo -e "   ${BLUE}make deploy-stacks${NC}"
     echo -e "\n${YELLOW}Need help?${NC}"
     echo -e "📚 Documentation: ${REPO_URL}"
     echo -e "💼 Professional services: See documentation for details."

@@ -20,40 +20,47 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-          cache: pip
+          python-version: "3.14"
 
-      - name: Install dependencies
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Sync toolchain
         run: |
-          pip install -r requirements.txt
-          ansible-galaxy collection install -r requirements.yml
+          uv sync
+
+      - name: Install Ansible collections
+        run: |
+          uv run ansible-galaxy collection install -r requirements.yml
 
       - name: Run ansible-lint
         run: |
-          ansible-lint stacks.yml monitoring.yml nuke.yml
+          uv run ansible-lint stacks.yml monitoring.yml nuke.yml
 
       - name: Run yamllint
         run: |
-          yamllint .
+          uv run yamllint .
 
       - name: Validate playbook syntax
         run: |
           echo "🔍 Validating playbook syntax..."
-          ansible-playbook --syntax-check site.yml
-          ansible-playbook --syntax-check stacks.yml
-          ansible-playbook --syntax-check monitoring.yml
-          ansible-playbook --syntax-check nuke.yml
+          uv run ansible-playbook --syntax-check site.yml
+          uv run ansible-playbook --syntax-check stacks.yml
+          uv run ansible-playbook --syntax-check monitoring.yml
+          uv run ansible-playbook --syntax-check nuke.yml
           echo "✅ All playbooks have valid syntax"
 
       - name: Scan for exposed secrets
         run: |
-          pip install detect-secrets
-
           echo "🔍 Scanning for secrets with detect-secrets..."
-          detect-secrets scan \
+          uv run detect-secrets scan \
             --baseline .secrets.baseline \
             --exclude-files roles/.*/(defaults|vars)/.*\.yml \
             --exclude-files group_vars/.*\.yml \
+            --exclude-files ^\.venv/ \
+            --exclude-files ^\.uv/ \
+            --exclude-files ^node_modules/ \
+            --exclude-files ^\.git/ \
             --all-files \
             2>&1 | tee detect-secrets-output.txt
 
@@ -79,19 +86,24 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-          cache: pip
+          python-version: "3.14"
 
-      - name: Install dependencies
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Sync toolchain
         run: |
-          pip install -r requirements.txt
-          ansible-galaxy collection install -r requirements.yml
+          uv sync
+
+      - name: Install Ansible collections
+        run: |
+          uv run ansible-galaxy collection install -r requirements.yml
 
       - name: Validate role structure
         run: |
           if [ -f "roles/${{ matrix.role }}/tasks/main.yml" ]; then
             echo "✅ Role ${{ matrix.role }}: Structure valid"
-            ansible-lint "roles/${{ matrix.role }}"
+            uv run ansible-lint "roles/${{ matrix.role }}"
           else
             echo "⚠️  Role ${{ matrix.role }}: No executable tasks"
           fi
@@ -106,18 +118,23 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-          cache: pip
+          python-version: "3.14"
 
-      - name: Install dependencies
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Sync toolchain
         run: |
-          pip install -r requirements.txt
-          ansible-galaxy collection install -r requirements.yml
+          uv sync
+
+      - name: Install Ansible collections
+        run: |
+          uv run ansible-galaxy collection install -r requirements.yml
 
       - name: Final playbook syntax validation
         run: |
           echo "🔍 Final convergence check..."
-          ansible-playbook --syntax-check \
+          uv run ansible-playbook --syntax-check \
             -i inventory/hosts.ini \
             site.yml stacks.yml monitoring.yml nuke.yml
           echo "✅ Convergence test passed"

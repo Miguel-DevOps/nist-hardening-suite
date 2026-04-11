@@ -13,9 +13,6 @@ permissions:
 jobs:
   lint:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11", "3.12"]
 
     steps:
       - name: Checkout code
@@ -23,21 +20,26 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
+          python-version: "3.14"
 
-      - name: Install dependencies
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Sync toolchain
         run: |
-          python -m pip install --upgrade pip
-          pip install ansible-core==2.17.0 ansible-lint==6.22.2 yamllint==1.35.1
+          uv sync
+
+      - name: Install Ansible collections
+        run: |
+          uv run ansible-galaxy collection install -r requirements.yml
 
       - name: Run ansible-lint on playbooks
         id: ansible-lint
         run: |
-          ansible-lint \
+          uv run ansible-lint \
             --config-file .ansible-lint \
             stacks.yml monitoring.yml nuke.yml
         continue-on-error: true
@@ -45,7 +47,7 @@ jobs:
       - name: Run yamllint on YAML files
         id: yamllint
         run: |
-          yamllint -c .yamllint \
+          uv run yamllint -c .yamllint \
             --format colored \
             --strict \
             . \
@@ -54,14 +56,14 @@ jobs:
 
       - name: Check Ansible version compatibility
         run: |
-          ansible --version
-          ansible-inventory --list
+          uv run ansible --version
+          uv run ansible-inventory --list
 
       - name: Validate playbook syntax
         run: |
-          ansible-playbook --syntax-check stacks.yml
-          ansible-playbook --syntax-check monitoring.yml
-          ansible-playbook --syntax-check nuke.yml
+          uv run ansible-playbook --syntax-check stacks.yml
+          uv run ansible-playbook --syntax-check monitoring.yml
+          uv run ansible-playbook --syntax-check nuke.yml
 
       - name: Report results to PR
         if: github.event_name == 'pull_request'
@@ -107,7 +109,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: lint-reports-py${{ matrix.python-version }}
+          name: lint-reports
           path: |
             yamllint_report.txt
 
@@ -117,14 +119,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Sync toolchain
+        run: |
+          uv sync
+
       - name: Install secret detection tool
         run: |
-          pip install detect-secrets==1.5.0
+          uv run detect-secrets --version
 
       - name: Scan for exposed secrets
         id: detect-secrets
         run: |
-          detect-secrets scan \
+          uv run detect-secrets scan \
             --baseline .secrets.baseline \
             --exclude-files roles/.*/(defaults|vars)/.*\.yml$ \
             --exclude-files group_vars/
@@ -147,25 +161,28 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.14"
 
-      - name: Install Ansible
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Sync toolchain
         run: |
-          pip install ansible-core==2.17.0
+          uv sync
 
       - name: Install Ansible collections
         run: |
-          ansible-galaxy collection install -r requirements.yml
+          uv run ansible-galaxy collection install -r requirements.yml
 
       - name: Verify playbook structure
         run: |
           echo "Checking playbook structure..."
-          ansible-playbook --list-hosts stacks.yml 2>&1 | grep -E "hosts|FATAL" || true
-          ansible-playbook --list-hosts monitoring.yml 2>&1 | grep -E "hosts|FATAL" || true
+          uv run ansible-playbook --list-hosts stacks.yml 2>&1 | grep -E "hosts|FATAL" || true
+          uv run ansible-playbook --list-hosts monitoring.yml 2>&1 | grep -E "hosts|FATAL" || true
 
       - name: Validate inventory format
         run: |
           if [ -f inventory/hosts.ini ]; then
-            ansible-inventory -i inventory/hosts.ini --list > /dev/null
+            uv run ansible-inventory -i inventory/hosts.ini --list > /dev/null
             echo "✅ Inventory valid"
           fi
