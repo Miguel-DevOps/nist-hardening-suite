@@ -66,10 +66,8 @@ services:
       interval: 15s
       timeout: 5s
       retries: 5
-
     # Manual DB bootstrap (run once after the stack is up):
-    # docker compose exec chatwoot-web bundle exec rails db:chatwoot_prepare
-
+    # docker compose exec chatwoot-web bundle exec rails db:chatwoot_prepare | sudo docker exec -it chatwoot bundle exec rails db:schema:load
   chatwoot-worker:
     image: ${CHATWOOT_IMAGE:-chatwoot/chatwoot:v4.12.1}
     restart: unless-stopped
