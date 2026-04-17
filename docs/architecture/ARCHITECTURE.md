@@ -206,6 +206,7 @@ nist-hardening-suite/
 ### Recommended Applications (Optional)
 
 - **Uptime Kuma** – Service availability monitoring as a standalone app under `recommended_apps/` (decoupled from core observability role)
+- **Metabase** – Self-hosted BI and analytics app under `recommended_apps/` with application-database-backed query caching
 
 ## 🔒 Security Considerations & Known Risks
 

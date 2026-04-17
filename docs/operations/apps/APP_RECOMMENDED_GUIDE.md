@@ -12,6 +12,8 @@ This guide defines the standards and procedures for deploying optional applicati
 - **Backup & restore:** Each app must document persistent data locations and backup/restore procedures.
 - **Security best practices:** Strong passwords, secret rotation, and network restrictions are required. No direct host port exposure by default.
 
+> **Metabase exception:** Metabase query caching is stored in the application database per the official Docker docs, so it does not need a separate Valkey service in this repository.
+
 ## 2. General Deployment Model
 
 - **Caddy as default ingress:** All apps are exposed via Caddy reverse proxy on the `public_net` Docker network. No direct host port mapping unless strictly required for bootstrap/testing.
@@ -23,6 +25,9 @@ This guide defines the standards and procedures for deploying optional applicati
 ```
 recommended_apps/
    chatwoot/
+      docker-compose.yml
+      .env.example
+   metabase/
       docker-compose.yml
       .env.example
    n8n/
@@ -67,13 +72,20 @@ recommended_apps/
 - Persistent data under `/srv/app/recommended-apps/uptime-kuma/data`.
 - All variables (including image tags) set via `.env.example`.
 
-## 8. Example: Chatwoot (Pattern for All Apps)
+## 8. Example: Metabase
+
+- Uses Postgres 17+ as the application database.
+- Exposes port `3000` only through `public_net` for Caddy routing.
+- Persists the application database in a named volume and `/plugins` in a separate named volume.
+- Uses official Metabase query cache settings; the cache stays inside the application database.
+
+## 9. Example: Chatwoot (Pattern for All Apps)
 
 - Uses Postgres 17+ and Valkey 9+ (no Redis service).
 - All service images and credentials parameterized in `.env.example`.
 - `REDIS_URL` must point to Valkey, not Redis.
 
-## 9. Example: n8n and TwentyCRM
+## 10. Example: n8n and TwentyCRM
 
 - Both use Postgres 17+ and Valkey 9+ (if cache required).
 - All images and credentials parameterized in `.env.example`.

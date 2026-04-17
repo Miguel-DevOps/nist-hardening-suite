@@ -64,7 +64,7 @@ The project aligns to **NIST 800-53** controls and emphasizes secrets handling, 
 - 🛡️ **Security-first hardening** with SSH restrictions, firewall controls, audit logging, CrowdSec integration, and Vault-backed secrets.
 - 🔐 **Zero-trust networking** through Tailscale ACL-driven access and minimized public exposure.
 - 🧱 **Modular architecture** using Ansible roles for security, Docker orchestration, observability, compliance, ingress, and Portainer edge operations.
-- 📦 **Optional application bundles** for Chatwoot, n8n, Twenty CRM, and Uptime Kuma.
+- 📦 **Optional application bundles** for Chatwoot, Metabase, n8n, Twenty CRM, and Uptime Kuma.
 - 📈 **Operational visibility** with exporter and observability stack support when capacity allows.
 - 🧪 **Validation gates** executed through Make targets (uv-backed) for linting, syntax checks, and secret scanning.
 - 🧭 **Documented operating model** with commands centralized in `docs/operations/COMMANDS.md`.
@@ -335,6 +335,7 @@ These are required only when the observability stack is enabled:
 ### App-Level `.env.example` Files
 
 - `recommended_apps/chatwoot/.env.example`
+- `recommended_apps/metabase/.env.example`
 - `recommended_apps/n8n/.env.example`
 - `recommended_apps/twenty-crm/.env.example`
 - `recommended_apps/uptime-kuma/.env.example`
