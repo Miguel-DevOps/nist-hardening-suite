@@ -1,6 +1,6 @@
 # Release Procedure
 
-Current latest release in git: `v5.0.2`.
+Current latest release in git: `v5.0.6`.
 
 This document defines the standard process for all future releases.
 
@@ -21,15 +21,15 @@ uv run detect-secrets scan --baseline .secrets.baseline $(git ls-files) > /dev/n
 
 # 3. Ensure encrypted runtime secrets are not tracked
 if git ls-files --error-unmatch group_vars/all/secrets.yml >/dev/null 2>&1; then
-	echo "ERROR: group_vars/all/secrets.yml is tracked in git"
-	exit 1
+  echo "ERROR: group_vars/all/secrets.yml is tracked in git"
+  exit 1
 fi
 
 # 4. Scan for high-risk hardcoded secret signatures
 if rg -n --hidden -g '!.git' -g '!**/.venv/**' \
-	-e 'ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|-----BEGIN (RSA|OPENSSH|EC|DSA) PRIVATE KEY-----|xox[baprs]-[A-Za-z0-9-]{10,}' ; then
-	echo "ERROR: Potential hardcoded secrets detected"
-	exit 1
+  -e 'ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16}|-----BEGIN (RSA|OPENSSH|EC|DSA) PRIVATE KEY-----|xox[baprs]-[A-Za-z0-9-]{10,}' ; then
+  echo "ERROR: Potential hardcoded secrets detected"
+  exit 1
 fi
 
 # 5. Dependency vulnerability scan
@@ -145,7 +145,7 @@ git push origin vX.Y.Z
 
 Follow semantic versioning:
 
-- **v5.0.3** – Security patches or operational fixes only (no new features)
+- **v5.0.6** – Security patches or operational fixes only (no new features)
 - **v5.1.0** – New features, backwards compatible
 - **v6.0.0** – Breaking changes, including operator-facing config/tooling migrations
 
