@@ -119,7 +119,7 @@
       ---
       # Caddy structured JSON access logs (SI-4 / AU-12)
       filenames:
-        - /var/log/caddy/*.log
+        - /srv/app/ingress/caddy-data/logs/access.log
       labels:
         type: caddy
     mode: "0640"
@@ -207,7 +207,7 @@
       - "   Mode: {{ 'Hybrid (console enrolled)' if crowdsec_console_key is defined else 'Local detection' }}"
       - "   Collections: crowdsecurity/linux, crowdsecurity/caddy"
       - "   Bouncer: crowdsec-firewall-bouncer-iptables"
-      - "   Logs monitored: /var/log/auth.log, /var/log/syslog, /var/log/caddy/*.log"
+      - "   Logs monitored: /var/log/auth.log, /var/log/syslog, /srv/app/ingress/caddy-data/logs/access.log"
   tags: [crowdsec, nist, si-4]
 
 - name: SI-4 | Deploy CrowdSec monitoring script

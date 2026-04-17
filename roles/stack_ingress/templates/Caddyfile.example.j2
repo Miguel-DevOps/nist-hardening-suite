@@ -1,24 +1,41 @@
 # Example Caddyfile template for stack_ingress role
-# Replace this content with your real configuration.
-
+# Routes are rendered dynamically from group_vars/all/ingress.yml.
+#
+# Per-service proxy_headers flags (set in ingress.yml):
+#   proxy_headers.standard  – forwards Host and X-Real-IP to the backend
+#                             (X-Forwarded-* are passed by Caddy automatically)
+#   proxy_headers.websocket – bypasses Coraza WAF for WS upgrade requests
+#                             (Coraza does not support WebSocket connections)
+#
+# Per-service security headers (set in ingress.yml):
+#   x_frame_options    – DENY | SAMEORIGIN (default: DENY)
+#   referrer_policy    – e.g. strict-origin-when-cross-origin
+#   csp                – full Content-Security-Policy value
+#   permissions_policy – e.g. camera=(), microphone=(), geolocation=()
+#
+# ⚠️  WebSocket routing pattern (when proxy_headers.websocket: true):
+#
+#   @ws matcher catches Connection: Upgrade / Upgrade: websocket requests.
+#   These go directly to reverse_proxy WITHOUT Coraza (Coraza blocks WS upgrades).
+#   All other HTTP requests go through the `handle` block WITH Coraza enabled.
+#
+#   Services without WebSocket (websocket: false) use a single reverse_proxy
+#   under the WAF as normal.
 {
     # SC-7 | Admin API restricted to localhost only (never exposed publicly)
     admin localhost:2019
-
     email {{ caddy_acme_email | default('admin@example.com') }}
     order coraza_waf first
     order rate_limit before basicauth
-
-    # AU-12/SI-4 | Structured JSON access logs to /var/log/caddy (CrowdSec + AuditD)
+    # AU-12/SI-4 | Structured JSON access logs to /data/logs (CrowdSec + AuditD)
     log {
-        output file /var/log/caddy/access.log {
+        output file /data/logs/access.log {
             roll_size 100mb
             roll_keep 5
             roll_keep_for 720h
         }
         format json
     }
-
     # 🛡️ CLOUDFLARE REAL IP RESTORATION
     servers {
         trusted_proxies static {
@@ -54,9 +71,8 @@
             Include /etc/caddy/owasp-crs/crs-setup.conf
             Include /etc/caddy/owasp-crs/rules/*.conf
             SecRuleEngine DetectionOnly
-
             SecAuditEngine RelevantOnly
-            SecAuditLog /dev/stdout
+            SecAuditLog /data/logs/coraza-audit.log
             SecAuditLogFormat JSON
             SecAuditLogParts ABCDEFGHIJKZ
         `
@@ -72,72 +88,81 @@
 }
 
 # -----------------------------------------------------------------------------
-# OPTIONAL APP ANNEX EXAMPLE: UPTIME KUMA (uptime-kuma:3001 on public_net)
-# Use one mode per app domain according to your risk model.
+# Dynamic application routes (rendered from ingress_services)
 # -----------------------------------------------------------------------------
-
-# -----------------------------------------------------------------------------
-# 1) RECOMMENDED: VPN-ONLY (Zero Trust, private operations)
-# Access limited to Tailscale subnet.
-# -----------------------------------------------------------------------------
-vpn.example.com {
-    import waf
+{% for svc in ingress_services %}
+{% set ph = svc.proxy_headers | default({}) %}
+{{ svc.domain }} {
+    {% set _profile = ingress_security_profiles[svc.security_profile] %}
+    {% if _profile.import_vpn_only | default(false) %}
     import vpn_only
+    {% endif %}
 
-    reverse_proxy uptime-kuma:3001 {
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-Proto {scheme}
-        header_up X-Forwarded-For {remote_host}
+    {% if ph.websocket | default(false) %}
+    # ⚡ WebSocket bypass – Coraza does not support WS connections.
+    # WS upgrade requests are routed directly to the upstream, skipping the WAF.
+    # All other HTTP traffic is inspected normally by Coraza.
+    @ws {
+        header Connection *Upgrade*
+        header Upgrade    websocket
     }
-
-    tls {
-        protocols tls1.2 tls1.3
+    handle @ws {
+        reverse_proxy {{ svc.upstream }} {
+            {% if ph.standard | default(false) %}
+            header_up Host      {host}
+            header_up X-Real-IP {remote_host}
+            {% endif %}
+            header_down -Server
+            header_down -X-Powered-By
+        }
     }
-
-    header {
-        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-        X-Content-Type-Options "nosniff"
-        X-Frame-Options "DENY"
-        Referrer-Policy "strict-origin-when-cross-origin"
+    handle {
+        {% if _profile.import_waf | default(false) %}
+        import waf
+        {% endif %}
+        reverse_proxy {{ svc.upstream }} {
+            {% if ph.standard | default(false) %}
+            header_up Host      {host}
+            header_up X-Real-IP {remote_host}
+            {% endif %}
+            header_down -Server
+            header_down -X-Powered-By
+        }
     }
-}
-
-# -----------------------------------------------------------------------------
-# 2) INSECURE EXAMPLE (ANTI-PATTERN): GLOBAL OPEN ACCESS
-# DO NOT USE IN PRODUCTION. Any source that can reach this host can reach app.
-# -----------------------------------------------------------------------------
-unsafe.example.com {
-    reverse_proxy uptime-kuma:3001 {
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-Proto {scheme}
-        header_up X-Forwarded-For {remote_host}
-    }
-}
-
-# -----------------------------------------------------------------------------
-# 3) GLOBAL BUT HARDENED: INTERNET ACCESS + WAF + TLS HARDENING
-# Use when public exposure is required and controls must stay enforced.
-# -----------------------------------------------------------------------------
-secure.example.com {
+    {% else %}
+    {% if _profile.import_waf | default(false) %}
     import waf
-
-    reverse_proxy uptime-kuma:3001 {
-        header_up Host {host}
+    {% endif %}
+    reverse_proxy {{ svc.upstream }} {
+        {% if ph.standard | default(false) %}
+        header_up Host      {host}
         header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-Proto {scheme}
-        header_up X-Forwarded-For {remote_host}
+        {% endif %}
+        header_down -Server
+        header_down -X-Powered-By
     }
+    {% endif %}
 
     tls {
         protocols tls1.2 tls1.3
     }
 
     header {
-        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-        X-Content-Type-Options "nosniff"
-        X-Frame-Options "DENY"
-        Referrer-Policy "strict-origin-when-cross-origin"
+        # --- Hardened security headers (applied to all services) ---
+        Strict-Transport-Security   "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options      "nosniff"
+        X-Frame-Options             "{{ svc.x_frame_options | default('DENY') }}"
+        {% if svc.referrer_policy is defined and svc.referrer_policy | length > 0 %}
+        Referrer-Policy             "{{ svc.referrer_policy }}"
+        {% endif %}
+        {% if svc.csp is defined and svc.csp | length > 0 %}
+        Content-Security-Policy     "{{ svc.csp }}"
+        {% endif %}
+        {% if svc.permissions_policy is defined and svc.permissions_policy | length > 0 %}
+        Permissions-Policy          "{{ svc.permissions_policy }}"
+        {% endif %}
+        # Hide Caddy server banner
+        -Server
     }
 }
+{% endfor %}

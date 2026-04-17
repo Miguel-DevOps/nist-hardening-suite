@@ -18,7 +18,6 @@ services:
       - {{ app_base_dir }}/ingress/caddy-config:/config
       - {{ app_base_dir }}/ingress/certs:/etc/caddy/certs:ro
       - {{ app_base_dir }}/ingress/Caddyfile:/etc/caddy/Caddyfile:ro
-      - /var/log/caddy:/var/log/caddy
     tmpfs:
       - /tmp:size=64m,noexec,nosuid,nodev
     user: "{{ caddy_user_uid }}:{{ caddy_user_gid }}"
