@@ -31,17 +31,25 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 | `v5.0.3` | 2026-04-10 | tag on `0acfb55`               | Network isolation hardening for optional stacks                                                                                       |
 | `v5.0.4` | 2026-04-10 | tag on `0acfb55`               | Ingress ownership and CrowdSec log visibility hardening                                                                               |
 | `v5.0.5` | 2026-04-11 | tag on `293e0c9`               | CrowdSec monitor reliability improvements                                                                                             |
-| `v5.0.6` | 2026-04-11 | tag on `ebc9a48` (current tag) | Tailscale ACL template rendering compatibility                                                                                        |
+| `v5.0.6` | 2026-04-11 | tag on `ebc9a48`               | Tailscale ACL template rendering compatibility                                                                                        |
+| `v5.1.0` | 2026-05-09 | tag on `ea932af`               | Routed service catalog and Caddy log-volume hardening                                                                                 |
+| `v5.2.0` | 2026-05-12 | tag on `fcfb090`               | Metabase recommended bundle with documented deployment model                                                                          |
+| `v5.2.1` | 2026-05-12 | tag on `11c5a12`               | Chatwoot manual bootstrap command fix                                                                                                 |
+| `v5.3.0` | 2026-05-14 | tag on `5a1bb19`               | APT lock pre-flight detection, timer management, and rescue blocks across playbook phases                                             |
+| `v5.4.0` | 2026-05-14 | tag on `651039d`               | Caddy per-node routing hardening with preflight assertions, certificate isolation, and Cloudflare multi-account support               |
+| `v5.5.0` | 2026-05-14 | tag on `6108eeb` (current tag) | OpenWebUI recommended bundle with documented deployment model                                                                         |
 
-### What Is Working Well in Current Working Tree (v5.0.7-dev)
+### What Is Working Well in Current Working Tree (v5.5.0)
 
 - NIST-focused architecture remains consistent (`AC-2`, `CM-7`, `SC-7`, `SI-4`, `AU-12`, `SC-28` audit scope).
 - Security stack is cohesive: SSH hardening, UFW/fail2ban, CrowdSec, Tailscale, Vault workflow.
 - Operational playbooks (`stacks.yml`, `monitoring.yml`, `nuke.yml`) enforce Tailscale-only transport via `tailscale_subnet` source-of-truth variable.
 - Observability deployment is fully automated end-to-end via Ansible and Vault-backed secrets.
-- Recommended app catalog now provides secure, Zero Trust-aligned deployment configurations for Chatwoot, Metabase, n8n, Twenty CRM, and Uptime Kuma.
-- **Caddy Node Isolation (NEW v5.0.7)**: Per-node Caddyfile routing via `target_group ∩ group_names` - management routes isolated to brain, app routes to muscle. Three-layer variable model: vault (domains, certs), inventory inline vars (caddy_node_id, caddy_coraza_mode per host), group_vars (caddy_type, caddy_admin_enabled defaults). Per-node Coraza WAF mode - brain-1 can be On while brain-2 is DetectionOnly simultaneously. TLS Origin Pull client authentication. Global security headers and HTTP→HTTPS redirect. Cloudflare origin certificates deployed only to target nodes. All domain data lives exclusively in the encrypted vault.
+- Recommended app catalog now provides secure, Zero Trust-aligned deployment configurations for Chatwoot, Metabase, n8n, OpenWebUI, Twenty CRM, and Uptime Kuma.
+- **Caddy Node Isolation (NEW v5.4.0)**: Per-node Caddyfile routing via `target_group ∩ group_names` — management routes isolated to brain, app routes to muscle. Three-layer variable model: vault (domains, certs), inventory inline vars (caddy_node_id, caddy_coraza_mode per host), group_vars (caddy_type, caddy_admin_enabled defaults). Per-node Coraza WAF mode — brain-1 can be On while brain-2 is DetectionOnly simultaneously. TLS Origin Pull client authentication. Global security headers and HTTP→HTTPS redirect. Cloudflare origin certificates deployed only to target nodes. All domain data lives exclusively in the encrypted vault.
 - Caddy WAF v2 is pinned, runtime-hardened, and ships annotated integration mode examples for optional app exposure patterns.
+- **APT Lock Detection (NEW v5.3.0)**: PHASE 0.1 pre-flight lock detection using `fuser`/`pgrep` with auto-kill for stale processes (>15min) and `apt_force_cleanup=true` flag for deadlocked processes. APT timer management across all playbook phases with rescue block restoration and Makefile flag injection.
+- **OpenWebUI Recommended Bundle (NEW v5.5.0)**: Self-hosted LLM chat interface with Docker Compose deployment, GPU passthrough support, and Caddy-first exposure model consistent with the existing recommended app catalog.
 - System security configurations and compliance guidance are reinforced across multiple roles, with strict dependency pinning ensuring reproducible builds.
 - Tooling modernization is in place with `uv` and Python `3.14`, including refreshed core pins (`ansible-core 2.20.4`, `ansible-lint 26.4.0`, `yamllint 1.38.0`) and pnpm-based markdown formatting policy in hooks.
 
@@ -80,7 +88,7 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 
 ### Planned Release Target
 
-- `v5.0.7` - Operational hardening and documentation parity follow-up.
+- `v5.5.0` — APT lock management, Caddy node isolation hardening, and OpenWebUI bundle delivered. U0 operational hardening items addressed via v5.3.0 and v5.4.0.
 
 ## U1 - High (30-60 days)
 
@@ -141,10 +149,10 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 - [ ] Improve cAdvisor zero-trust coverage on hardened Docker hosts (`userns-remap`) with explicit metric-tier profiles (strict, balanced, full) and documented tradeoffs per profile.
 - [ ] Add optional per-node cAdvisor enablement in inventory/group vars so hardened nodes can run Node Exporter only while keeping centralized scrape configuration clean.
 - [ ] Rename `tailscale_subnet` to a VPN-agnostic overlay variable (e.g. `management_overlay_subnet`) to support non-Tailscale overlays (Headscale, WireGuard, etc.) without requiring changes across multiple playbooks. `tailscale_subnet` would remain as an alias for backwards compatibility. Relevant controls: NIST `CM-6`, `SC-7`.
-- [ ] **Coraza full activation checklist** (follow-up to v5.0.7 F4): After OWASP CRS tuning period on muscle nodes (DetectionOnly), documented activation procedure with per-service WAF bypass audit, false-positive triage runbook, and gradual rollout plan (muscle-1 → muscle-2 → all workers).
-- [ ] **Dynamic inventory migration** (follow-up to v5.0.7 inventory inline vars): If Terraform, AWX, or an OCI dynamic inventory plugin is adopted, the per-host `caddy_node_id` and `caddy_coraza_mode` inline vars in `hosts.ini` must be migrated to the new inventory system. The three-layer variable model (vault/inventory/group_vars) must be preserved regardless of the inventory backend. Flag this when the project adopts IaC-driven inventory.
-- [ ] **Cloudflare Origin CA cert expiry monitoring** (follow-up to v5.0.7 F5): The `cloudflare-origin-pull-ca.pem` CA bundle has a finite validity period. Action items: (1) Check current expiry: `openssl x509 -in roles/stack_ingress/files/cloudflare-origin-pull-ca.pem -noout -enddate`. (2) Add Ansible preflight task: assert cert is not expired and warns at 30-day threshold using `openssl x509 -checkend 2592000`. (3) Document rotation process: download updated CA from Cloudflare's published URL, replace file, re-deploy via `stacks.yml --tags cloudflare,sc-8`, validate with `curl --cacert cloudflare-origin-pull-ca.pem` against a CF-origin service. CA cert expiry should block deploy if expired and log a warning if within the 30-day window.
-- [ ] **Caddy node stack tests** (follow-up to v5.0.7): Add Molecule or integration tests validating per-node Caddyfile rendering (brain receives management routes, muscle receives app routes, certs isolated), preflight assertion coverage for `target_group`/`coraza_mode`/`admin_enabled`, and TLS Origin Pull verification.
+- [ ] **Coraza full activation checklist** (follow-up to v5.4.0 F4): After OWASP CRS tuning period on muscle nodes (DetectionOnly), documented activation procedure with per-service WAF bypass audit, false-positive triage runbook, and gradual rollout plan (muscle-1 → muscle-2 → all workers).
+- [ ] **Dynamic inventory migration** (follow-up to v5.4.0 inventory inline vars): If Terraform, AWX, or an OCI dynamic inventory plugin is adopted, the per-host `caddy_node_id` and `caddy_coraza_mode` inline vars in `hosts.ini` must be migrated to the new inventory system. The three-layer variable model (vault/inventory/group_vars) must be preserved regardless of the inventory backend. Flag this when the project adopts IaC-driven inventory.
+- [ ] **Cloudflare Origin CA cert expiry monitoring** (follow-up to v5.4.0 F5): The `cloudflare-origin-pull-ca.pem` CA bundle has a finite validity period. Action items: (1) Check current expiry: `openssl x509 -in roles/stack_ingress/files/cloudflare-origin-pull-ca.pem -noout -enddate`. (2) Add Ansible preflight task: assert cert is not expired and warns at 30-day threshold using `openssl x509 -checkend 2592000`. (3) Document rotation process: download updated CA from Cloudflare's published URL, replace file, re-deploy via `stacks.yml --tags cloudflare,sc-8`, validate with `curl --cacert cloudflare-origin-pull-ca.pem` against a CF-origin service. CA cert expiry should block deploy if expired and log a warning if within the 30-day window.
+- [ ] **Caddy node stack tests** (follow-up to v5.4.0): Add Molecule or integration tests validating per-node Caddyfile rendering (brain receives management routes, muscle receives app routes, certs isolated), preflight assertion coverage for `target_group`/`coraza_mode`/`admin_enabled`, and TLS Origin Pull verification.
 
 ## Success Criteria
 
@@ -168,4 +176,4 @@ Consolidate the NIST Hardening Suite as a practical, transparent, and auditable 
 ---
 
 Maintained by Miguel Lozano - Cloud Infrastructure Engineer & FinOps Specialist
-Last updated: 2026-05-05
+Last updated: 2026-05-14

@@ -1,5 +1,73 @@
 # Changelog
 
+## [5.5.0] - 2026-05-14
+
+### Features
+
+- **OpenWebUI Recommended Bundle**: New `recommended_apps/openwebui/` directory with a secure Docker Compose deployment (`docker-compose.yml`) and documented environment template (`.env.example`). The bundle follows the same security-conscious, Caddy-first exposure model as the existing app catalog (Chatwoot, Metabase, n8n, Twenty CRM, Uptime Kuma), enabling operators to deploy a self-hosted LLM chat interface with GPU passthrough, pipeline engines, and optional observability integration — all behind the project's hardened ingress layer.
+
+## [5.4.0] - 2026-05-14
+
+### Security — Caddy Node Isolation Hardening (NIST 800-53 / CIS Benchmarks)
+
+Resolves 8 audit findings (F1–F8) from the Caddy ingress architecture review.
+Previously, the same Caddyfile was deployed identically to all 3 nodes (brain-1, muscle-1, muscle-2), exposing management routes on workers, replicating Cloudflare private key material to every node, and running Coraza in DetectionOnly mode with no per-node WAF control.
+
+#### CRITICAL Fixes
+
+- **F1 / SC-7, AC-3 — Management route isolation**: `Caddyfile.j2` now filters ingress routes by `target_group ∩ group_names` (Jinja2 guard). Management interfaces (Portainer, Grafana, Uptime Kuma) are deployed only to `[brain]` nodes. Muscle workers receive zero management routes.
+- **F3 / SC-12, SC-28 — Certificate deployment isolation**: `tasks/main.yml` cert deployment loop now computes `_caddy_needed_certs` by filtering `ingress_services` entries whose `target_group` matches the current node's `group_names`, then deploys only those certificates. Private keys no longer exist on nodes that don't serve those domains.
+
+#### HIGH Fixes
+
+- **F2 / SC-7, CM-7 — Application route filtering**: The same `target_group ∩ group_names` guard prevents application routes (n8n, Metabase, Twenty CRM, Chatwoot, OpenWebUI) from rendering on the brain management node.
+- **F4 / SI-4, SC-7 — Per-node Coraza WAF mode**: `SecRuleEngine` now uses `{{ caddy_coraza_mode | default('On') }}` from per-node `host_vars`. brain-1 = `On` (blocking), muscle-1/2 = `DetectionOnly` (log-only until OWASP CRS tuning complete). Preflight assert validates the value.
+- **F5 / SC-8, SC-13 — TLS Origin Pull client authentication**: Services with `cert_name` and `tls_client_auth: cloudflare` now include `client_auth { trusted_ca_cert_file /etc/caddy/cloudflare-origin-pull-ca.pem }` in their TLS block. CA bundle deployed only to nodes that need it.
+
+#### MEDIUM Fixes
+
+- **F6 / SC-8 — Global HTTP→HTTPS redirect**: Caddy now serves `:80 { redir https://{host}{uri} permanent }` for all domain-matched plaintext requests.
+- **F7 / SC-23, SC-7 — Global security headers**: Baseline headers (HSTS, X-Content-Type-Options: nosniff, X-Frame-Options: DENY) now applied in the global options block, covering error pages and unmatched hosts.
+- **F8 / AC-3, IA-2 — Admin API hardening**: `admin off` when `caddy_admin_enabled: false` (default). Enabled only for troubleshooting via host_var.
+
+#### New Files
+
+- `group_vars/brain/caddy.yml` — brain group Caddy configuration (inherited by ALL brain nodes automatically)
+- `group_vars/muscle/caddy.yml` — muscle group Caddy configuration (inherited by ALL muscle nodes automatically)
+- `roles/stack_ingress/files/cloudflare-origin-pull-ca.pem` — Cloudflare Origin Pull CA placeholder
+
+#### Architectural Decision (Final)
+
+- **Three-layer variable model**: Variables are strictly partitioned by sensitivity and scope. (1) **Vault** (secrets.yml, AES256): domains, certs, service routes, API keys — never plaintext. (2) **Inventory inline vars** (hosts.ini): `caddy_node_id`, `caddy_coraza_mode` — operational config per host, in git. (3) **Group vars** (group_vars/{brain,muscle}/caddy.yml): `caddy_type`, `caddy_admin_enabled` — defaults inherited by all nodes in the group.
+- **Per-node WAF state**: `caddy_coraza_mode` is an inventory inline var per host, not a group-level var. This allows brain-1 to be `On` (blocking) while brain-2 is `DetectionOnly` (tuning) simultaneously. Any node missing this variable fails the preflight assert loudly.
+- **Vault-only domains**: All domain names, upstream endpoints, and routing topology live exclusively in the encrypted vault. No domain appears in any plaintext YAML file. The `caddy_domains` reference exists only as a vault-only convenience comment in `secrets.yml.example`.
+- **Scalable by design**: Adding a new node requires ONLY one line in inventory with `caddy_node_id` and `caddy_coraza_mode` — zero additional files, no host_vars, no group_vars edits.
+
+#### Schema Changes (secrets.yml — vault)
+
+- `ingress_services[*].target_group` (REQUIRED new field): `brain` | `muscle` | `[brain, muscle]`
+- `ingress_services[*].tls_client_auth` (optional): `cloudflare` for Origin Pull verification
+- `cloudflare_origin_certs`: Multi-account dict keyed by `cert_name` using descriptive convention (`account_a_example_com`). Preflight assert cross-validates every `cert_name` reference exists in vault.
+- Preflight assert catches missing `target_group` at deploy time
+
+### Chore
+
+- **docs/project/ROADMAP.md**: Completed Caddy node isolation items, added Coraza activation checklist, CA cert expiry monitoring (with openssl commands and 30-day threshold), dynamic inventory migration flag, and cert rotation follow-ups.
+- **group_vars/all/secrets.yml.example**: Updated field documentation with `target_group` and `tls_client_auth` descriptions.
+- **BP2: ansible_user policy enforced**: `ansible_user` is a PER-HOST inventory variable, NEVER in group_vars. Group-level assumptions (`root` for brain, `ubuntu` for muscle) break on mixed-OS deployments. The Makefile's `BECOME_PROMPT_FLAG` depends on per-host `ansible_user` to auto-detect non-root users. `hosts.ini.example` documents OS conventions (Debian=root, Ubuntu/OCI=ubuntu, custom provisioned nodes).
+- **BP3: caddy_node_id preflight assert**: New assert fails loudly with actionable message if `caddy_node_id` is missing from inventory.
+- **BP4: ingress_services non-empty assert**: Fail message now explicitly mentions vault decryption failure as possible cause.
+- **Caddyfile.example.j2 fully synced**: Example template now matches `Caddyfile.j2` with three-layer variable model, `target_group` guard, `client_auth` block, `admin off`, `:80` redirect, global headers, and example `ingress_services` entry with all new fields.
+
+## [5.3.0] - 2026-05-14
+
+### Features
+
+- **APT Lock Pre-flight Detection (PHASE 0.1)**: New pre-flight play detects lock holders on `/var/lib/apt/lists/lock`, `/var/lib/dpkg/lock`, and `/var/lib/dpkg/lock-frontend` using `fuser` and `pgrep` before any apt operations run. Fails fast (<5s) with hostname, PID, command, and remediation steps when a lock is held. Supports auto-kill of stale processes (>15min) and force-kill via `apt_force_cleanup=true` for deadlocked dpkg/apt processes.
+- **APT Timer Management**: PHASE 1 pre_tasks stop `apt-daily.timer` and `apt-daily-upgrade.timer` (with `enabled: false`) before the first `apt_refresh.yml` call. Rescue blocks in PHASES 2, 2.5, and 3 restore timers on any phase failure. PHASE 4 post_tasks restore timers on success. All timer operations use `failed_when: false` for idempotency on systems where timers are absent.
+- **Migration to `include_role` with Rescue Blocks**: All playbook phases (PHASES 1–4) migrated from `roles:` to `include_role` with Ansible rescue blocks, enabling graceful timer restoration and error isolation per phase.
+- **Makefile APT Force Flag Injection**: `APT_FORCE_FLAG` variable plumbed into all `ansible-playbook` Make targets, allowing operators to pass `--extra-vars "apt_force_cleanup=true"` through the standard Make interface.
+
 ## [5.0.8] - 2026-05-09
 
 ### Features

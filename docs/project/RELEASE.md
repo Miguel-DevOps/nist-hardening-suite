@@ -1,6 +1,6 @@
 # Release Procedure
 
-Current latest release in git: `v5.0.6`.
+Current latest release in git: `v5.5.0`.
 
 This document defines the standard process for all future releases.
 
@@ -145,9 +145,10 @@ git push origin vX.Y.Z
 
 Follow semantic versioning:
 
-- **v5.0.6** – Security patches or operational fixes only (no new features)
-- **v5.1.0** – New features, backwards compatible
-- **v6.0.0** – Breaking changes, including operator-facing config/tooling migrations
+- **v5.5.0** — Feature bundles (recommended apps, security hardening, new capabilities — no breaking changes)
+- **v5.5.1** — Security patches or operational fixes only (no new features)
+- **v5.6.0** — New features, backwards compatible
+- **v6.0.0** — Breaking changes, including operator-facing config/tooling migrations
 
 Practical mapping for this repository:
 
