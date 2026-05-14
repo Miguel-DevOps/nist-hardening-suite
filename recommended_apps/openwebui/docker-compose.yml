@@ -1,0 +1,47 @@
+services:
+  open-webui:
+    image: ${OPEN_WEBUI_IMAGE:-ghcr.io/open-webui/open-webui:main}
+    container_name: open-webui
+    hostname: open-webui
+    restart: unless-stopped
+
+    environment:
+      # Security
+      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
+
+      # Local / Remote Ollama endpoints
+      - OLLAMA_BASE_URLS=${OLLAMA_BASE_URLS}
+
+      # OpenAI-compatible providers
+      - OPENAI_API_BASE_URLS=${OPENAI_API_BASE_URLS}
+      - OPENAI_API_KEYS=${OPENAI_API_KEYS}
+
+      # Retrieval & Embeddings
+      - CONTENT_EXTRACTION_ENGINE=${CONTENT_EXTRACTION_ENGINE}
+      - RAG_EMBEDDING_ENGINE=${RAG_EMBEDDING_ENGINE}
+
+    volumes:
+      - open_webui_data:/app/backend/data
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    networks:
+      - public
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8080/health || wget --no-verbose --tries=1 --spider http://127.0.0.1:8080/health || exit 1"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  open_webui_data: {}
+
+networks:
+  public:
+    external: true
