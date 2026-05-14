@@ -89,8 +89,9 @@ id_ed25519.pub
 crash.log
 crash.*.log
 
-# Generic log files
+# Generic log files and log directories
 *.log
+logs/
 
 # =================================================
 # CI/CD & Automation Artifacts
@@ -178,6 +179,7 @@ temp/
 .venv/
 .uv/
 .pnpm/
+.pnpm-store/
 node_modules/
 
 # Python caches and test artifacts
@@ -202,6 +204,7 @@ htmlcov/
 
 # Local editor / tooling metadata
 .python-version
+.atl/
 .direnv/
 .cache/
 
@@ -217,6 +220,19 @@ build/
 
 # Ignore Caddyfile.j2 (user-specific config)
 roles/stack_ingress/templates/Caddyfile.j2
+
+# =================================================
+# Supply Chain Security (Cosign / SBOM)
+# =================================================
+
+# Private signing keys - must never be committed
+cosign.key
+
+# Generated SBOM artifacts
+sbom.*.json
+
+# Container image attestations
+*.attestation
 
 #############################################
 # End of .gitignore

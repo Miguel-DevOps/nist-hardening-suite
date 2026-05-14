@@ -1,8 +1,10 @@
 .git
+.gitignore
 .github
 .venv
 .uv
 .pnpm
+.pnpm-store
 node_modules
 __pycache__
 *.py[cod]
@@ -24,6 +26,7 @@ group_vars/**/secrets.yml
 inventory/hosts.ini
 *.retry
 *.log
+logs
 dist
 build
 *.egg-info
@@ -32,3 +35,11 @@ tests
 scripts
 LICENSE
 README.md
+*.md
+Dockerfile*
+docker-compose*.yml
+.idea/
+.vscode/
+cosign.key
+*.attestation
+sbom.*.json
