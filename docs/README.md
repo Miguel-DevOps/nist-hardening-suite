@@ -8,6 +8,7 @@ This folder centralizes project documentation by objective and operational domai
   - [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md): system design, security layers, and core technical decisions.
 - `operations/`
   - [docs/operations/COMMANDS.md](docs/operations/COMMANDS.md): operational command interface and runbooks.
+  - [docs/operations/COMPATIBILITY.md](docs/operations/COMPATIBILITY.md): tested OS and architecture support matrix.
   - [docs/operations/PRODUCTION_COMMAND_AUDIT.md](docs/operations/PRODUCTION_COMMAND_AUDIT.md): production command-path audit checklist.
   - [docs/operations/apps/APP_RECOMMENDED_GUIDE.md](docs/operations/apps/APP_RECOMMENDED_GUIDE.md): secure standards for optional app deployments.
 - `compliance/`

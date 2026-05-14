@@ -11,7 +11,7 @@ _Enterprise-grade Ansible hardening for NIST-aligned Debian and Ubuntu infrastru
 ![Docker Ready](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![Standard NIST 800-53](https://img.shields.io/badge/Standard-NIST_800--53-0B5CAD?style=for-the-badge)
 ![Status Production Active](https://img.shields.io/badge/Status-Production_Active-success?style=for-the-badge)
-![License MIT](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
+![License MIT](https://img.shields.io/badge/License-MIT_©_Miguel_Lozano_|_Developmi-blue?style=for-the-badge)
 ![Maintainer Miguel Lozano](https://img.shields.io/badge/Maintainer-Miguel_Lozano-black?style=for-the-badge)
 ![Role Cloud & Infrastructure Engineer](https://img.shields.io/badge/Role-Cloud_%26_Infrastructure_Engineer-black?style=for-the-badge)
 ![CI GitHub Actions](https://img.shields.io/badge/CI-GitHub_Actions-blue?style=for-the-badge&logo=githubactions&logoColor=white)
@@ -40,6 +40,11 @@ _Enterprise-grade Ansible hardening for NIST-aligned Debian and Ubuntu infrastru
 - [Docker & Deployment](#docker--deployment)
 - [Configuration & Secrets](#configuration--secrets)
 - [Validation & Quality Gates](#validation--quality-gates)
+- [Tests](#-tests)
+- [Security](#-security)
+- [Changelog](#-changelog)
+- [Contributing](#-contributing)
+- [License](#-license)
 - [Documentation Guide](#documentation-guide)
 - [Contact & Support](#contact--support)
 
@@ -365,6 +370,52 @@ Current quality gates include:
 
 ---
 
+## 🧪 Tests
+
+This project is validated through Make-driven quality gates. For production-grade role testing, use `molecule` or `ansible-test` with a local inventory:
+
+```bash
+make validate
+make lint PLAYBOOK=site.yml
+make dry-run PLAYBOOK=stacks.yml
+make precommit-run
+```
+
+**CI pipeline:** All four playbooks (`site.yml`, `stacks.yml`, `monitoring.yml`, `nuke.yml`) pass syntax check and linting on every PR via [GitHub Actions](.github/workflows/ci.yml). A dedicated `security-audit.yml` workflow runs on version tags for release gating.
+
+> **Note:** Automated role-level integration testing (e.g., Molecule) is on the roadmap. Current validation focuses on syntax, linting, idempotency dry-runs, and secret scanning - all exercised through `make` targets and CI.
+
+---
+
+## 🔒 Security
+
+This project follows a coordinated disclosure policy.
+If you discover a vulnerability, **do not open a public issue**.
+See [SECURITY.md](./SECURITY.md) for reporting instructions, supported versions, and response timelines.
+
+---
+
+## 📋 Changelog
+
+See [CHANGELOG.md](./docs/project/CHANGELOG.md) for the full version history.
+The project follows [Keep a Changelog](https://keepachangelog.com/) and [Semantic Versioning](https://semver.org/).
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](./CONTRIBUTING.md) before opening a pull request.
+This project follows [Conventional Commits](https://www.conventionalcommits.org/) and the Developmi engineering standard.
+
+---
+
+## 📄 License
+
+Copyright © 2026 Miguel Lozano | Developmi. All rights reserved.
+Licensed under the [MIT License](./LICENSE).
+
+---
+
 ## Documentation Guide
 
 Use this map to find deep technical details quickly.
@@ -380,6 +431,7 @@ Use this map to find deep technical details quickly.
 ### Operations
 
 - Commands and runbooks: [docs/operations/COMMANDS.md](docs/operations/COMMANDS.md)
+- OS compatibility and tested platforms: [docs/operations/COMPATIBILITY.md](docs/operations/COMPATIBILITY.md)
 - Production audit trail for commands: [docs/operations/PRODUCTION_COMMAND_AUDIT.md](docs/operations/PRODUCTION_COMMAND_AUDIT.md)
 - Recommended apps deployment guidance: [docs/operations/apps/APP_RECOMMENDED_GUIDE.md](docs/operations/apps/APP_RECOMMENDED_GUIDE.md)
 
@@ -411,4 +463,4 @@ Use this map to find deep technical details quickly.
 
 ---
 
-© 2026 Miguel Lozano. All rights reserved.
+© 2026 Miguel Lozano | Developmi. All rights reserved.

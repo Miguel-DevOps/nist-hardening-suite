@@ -222,7 +222,24 @@ The suite deploys **Portainer Edge Agent** by default (`portainer-edge-agent.yml
 ### Caddy Ingress & Zero Trust
 
 The default `Caddyfile.j2` includes a `(vpn_only)` block that restricts access to Tailscale IPs (100.64.0.0/10). All example site definitions import this block, enforcing Zero Trust at the ingress layer. Remove `import vpn_only` from any site that requires public internet access.
-The repository now ships `roles/stack_ingress/templates/Caddyfile.example.j2` as the tracked baseline. Operators must copy it to `Caddyfile.j2` locally before running `stacks.yml`; the untracked file stays deployment-specific by design.
+
+**Per-node routing (v5.0.7+)**: The Caddyfile.j2 template filters routes by `target_group ∩ group_names`, using Ansible inventory group membership. Each `ingress_services` entry must declare a `target_group` field (`"brain"`, `"muscle"`, or `["brain", "muscle"]`). Management routes (Portainer, Grafana, Uptime Kuma) are deployed only to `[brain]` nodes. Application routes (n8n, Metabase, CRM, Chatwoot) are deployed only to `[muscle]` nodes.
+
+**Variable precedence model** (three layers, never mixed):
+
+| Layer          | Location                                                 | Content                                                           | Example                                                |
+| -------------- | -------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------ |
+| 1 - VAULT      | `group_vars/all/secrets.yml` (AES256 encrypted)          | Domains, certs, service routes, API keys, CSP headers - SENSITIVE | `ingress_services[].domain`, `cloudflare_origin_certs` |
+| 2 - INVENTORY  | `inventory/hosts.ini` (inline vars per host, gitignored) | Per-host operational config - NOT SECRET                          | `ansible_user`, `caddy_node_id`, `caddy_coraza_mode`   |
+| 3 - GROUP_VARS | `group_vars/{brain,muscle}/caddy.yml`                    | Group-level defaults inherited by all nodes in the group          | `caddy_type`, `caddy_admin_enabled`                    |
+
+`ansible_user` is PER HOST - NEVER in group_vars. OS/user conventions vary: Debian=root, Ubuntu/OCI=ubuntu, custom provisioned nodes. The Makefile auto-detects non-root users via `BECOME_PROMPT_FLAG`. Hardcoding `ansible_user` in group_vars breaks on mixed-OS deployments.
+
+Adding a new node requires ONLY one line in inventory with `ansible_user`, `caddy_node_id`, and `caddy_coraza_mode` - zero additional files. Cloudflare origin certificates are deployed only to nodes whose `ingress_services` entries reference them.
+
+**Multi-account Cloudflare support (v5.0.7+)**: The `cloudflare_origin_certs` vault dict supports multiple Cloudflare accounts. Each entry is keyed by `cert_name` using a descriptive convention (`account_a_example_com`, `client_x_primary`). `ingress_services[*].cert_name` maps each service to its Origin Certificate. A preflight assert cross-validates that every `cert_name` referenced by a service exists in the vault dict - mismatches fail deploy with an actionable message listing valid `cert_names`. The `cloudflare-origin-pull-ca.pem` CA bundle is **universal** across all Cloudflare accounts (one file covers all). Only Origin Certificates (cert + key pairs) are per-account.
+
+The repository now ships `roles/stack_ingress/templates/Caddyfile.example.j2` as the tracked baseline.
 
 ### SC‑28 Data at Rest Clarification
 
