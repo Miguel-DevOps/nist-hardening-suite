@@ -1,33 +1,40 @@
-# Example Caddyfile template for stack_ingress role
-# Routes are rendered dynamically from group_vars/all/ingress.yml.
+# Caddyfile.example - stack_ingress role (template)
+# Copy to Caddyfile.j2 and adjust for your deployment.
 #
-# Per-service proxy_headers flags (set in ingress.yml):
-#   proxy_headers.standard  – forwards Host and X-Real-IP to the backend
-#                             (X-Forwarded-* are passed by Caddy automatically)
-#   proxy_headers.websocket – bypasses Coraza WAF for WS upgrade requests
-#                             (Coraza does not support WebSocket connections)
+# Rendered from vault (secrets.yml), filtered per-node via target_group ∩ group_names.
 #
-# Per-service security headers (set in ingress.yml):
-#   x_frame_options    – DENY | SAMEORIGIN (default: DENY)
-#   referrer_policy    – e.g. strict-origin-when-cross-origin
-#   csp                – full Content-Security-Policy value
-#   permissions_policy – e.g. camera=(), microphone=(), geolocation=()
+# VARIABLE OWNERSHIP (three layers - NEVER mix):
+#   Layer 1 | vault (secrets.yml)       → domains, certs, routes, API keys
+#   Layer 2 | inventory (hosts.ini)     → caddy_node_id, caddy_coraza_mode (per host)
+#   Layer 3 | group_vars (brain|muscle) → caddy_type, caddy_admin_enabled (group defaults)
 #
-# ⚠️  WebSocket routing pattern (when proxy_headers.websocket: true):
+# SC-28  | All domains and upstreams live exclusively in the encrypted vault.
+# SC-7   | Per-service security headers in site blocks (Caddy v2 has no global header).
+# SC-8   | TLS 1.2/1.3 enforced; HTTP→HTTPS redirect; Cloudflare Origin Pull supported.
+# AU-12  | JSON access log + Coraza audit log to /data/logs for CrowdSec ingestion.
+# SI-4   | OWASP CRS via Coraza WAF; per-node enforcement mode (caddy_coraza_mode).
+# AC-3   | Admin API disabled in production; localhost-only when troubleshooting.
+# SC-13  | client_auth via cloudflare-origin-pull-ca.pem for Origin Pull verification.
 #
-#   @ws matcher catches Connection: Upgrade / Upgrade: websocket requests.
-#   These go directly to reverse_proxy WITHOUT Coraza (Coraza blocks WS upgrades).
-#   All other HTTP requests go through the `handle` block WITH Coraza enabled.
+# ROUTING: for-loop iterates ingress_services, skipping entries whose target_group
+# does not intersect with the current node's group_names OR match caddy_node_id.
+# target_group examples: "muscle" | "brain" | "muscle-1" | ["muscle-1", "brain-1"]
 #
-#   Services without WebSocket (websocket: false) use a single reverse_proxy
-#   under the WAF as normal.
+# WEBSOCKET: when proxy_headers.websocket=true, a @ws matcher bypasses Coraza
+# (Coraza doesn't support WS upgrades). All other HTTP goes through WAF.
 {
-    # SC-7 | Admin API restricted to localhost only (never exposed publicly)
+    {% if caddy_admin_enabled | default(false) %}
+    # AC-3 | Admin API on localhost for troubleshooting only
     admin localhost:2019
-    email {{ caddy_acme_email | default('admin@example.com') }}
+    {% else %}
+    # AC-3 | Admin API disabled in production
+    admin off
+    {% endif %}
+    email {{ caddy_acme_email | default('ops@example.com') }}
     order coraza_waf first
     order rate_limit before basicauth
-    # AU-12/SI-4 | Structured JSON access logs to /data/logs (CrowdSec + AuditD)
+
+    # AU-12 / SI-4 | Structured JSON access log
     log {
         output file /data/logs/access.log {
             roll_size 100mb
@@ -36,7 +43,8 @@
         }
         format json
     }
-    # 🛡️ CLOUDFLARE REAL IP RESTORATION
+
+    # Cloudflare real IP restoration (trusted_proxies)
     servers {
         trusted_proxies static {
             173.245.48.0/20
@@ -58,19 +66,25 @@
     }
 }
 
-# Health check interno
+# SC-8 | HTTP → HTTPS redirect
+:80 {
+    redir https://{host}{uri} permanent
+}
+
+# Health check (Docker)
 :2020 {
     respond "OK" 200
 }
 
-# 🧱 WAF BLOCK (Coraza)
+# ── WAF snippet (Coraza + OWASP CRS) ──────────────────────────────────
+# Enforcement: {{ caddy_coraza_mode }} per host (On | DetectionOnly | Off)
 (waf) {
     coraza_waf {
         directives `
             Include /etc/caddy/coraza.conf
             Include /etc/caddy/owasp-crs/crs-setup.conf
             Include /etc/caddy/owasp-crs/rules/*.conf
-            SecRuleEngine DetectionOnly
+            SecRuleEngine {{ caddy_coraza_mode | default('On') }}
             SecAuditEngine RelevantOnly
             SecAuditLog /data/logs/coraza-audit.log
             SecAuditLogFormat JSON
@@ -79,7 +93,7 @@
     }
 }
 
-# 🔒 VPN RESTRICTION BLOCK (Zero Trust)
+# ── Zero Trust VPN restriction ────────────────────────────────────────
 (vpn_only) {
     @denied_vpn {
         not remote_ip {{ tailscale_subnet }} 127.0.0.1/8 ::1
@@ -87,10 +101,29 @@
     abort @denied_vpn
 }
 
-# -----------------------------------------------------------------------------
-# Dynamic application routes (rendered from ingress_services)
-# -----------------------------------------------------------------------------
+# ── Dynamic application routes ────────────────────────────────────────
+#
+# Example ingress_services entry in group_vars/all/secrets.yml (vault):
+#
+#   - name: my-app
+#     domain: app.example.com
+#     upstream: my-app-container:8080
+#     target_group: muscle
+#     security_profile: public_waf
+#     cert_name: "my_origin_cert"        # optional Cloudflare origin cert key
+#     tls_client_auth: cloudflare        # optional, enables Origin Pull
+#     proxy_headers:
+#       standard: false                  # forward Host + X-Real-IP to backend
+#       websocket: false                 # bypass Coraza for WS upgrades
+#     x_frame_options: DENY
+#     referrer_policy: strict-origin-when-cross-origin
+#     csp: "default-src 'self'; script-src 'self' 'unsafe-inline'..."
+#     permissions_policy: "camera=(), microphone=(), geolocation=()"
+#
 {% for svc in ingress_services %}
+{% if svc.target_group is defined %}
+{% set _tg = [svc.target_group] if svc.target_group is string else svc.target_group %}
+{% if _tg | select('in', group_names) | list | length > 0 or caddy_node_id in _tg %}
 {% set ph = svc.proxy_headers | default({}) %}
 {{ svc.domain }} {
     {% set _profile = ingress_security_profiles[svc.security_profile] %}
@@ -99,9 +132,7 @@
     {% endif %}
 
     {% if ph.websocket | default(false) %}
-    # ⚡ WebSocket bypass – Coraza does not support WS connections.
-    # WS upgrade requests are routed directly to the upstream, skipping the WAF.
-    # All other HTTP traffic is inspected normally by Coraza.
+    # WebSocket bypass - Coraza doesn't support WS upgrades
     @ws {
         header Connection *Upgrade*
         header Upgrade    websocket
@@ -143,12 +174,24 @@
     }
     {% endif %}
 
+    {% if svc.cert_name is defined and svc.cert_name %}
+    # SC-8 / SC-13 | Cloudflare Origin Certificate (static, no ACME)
+    tls /etc/caddy/certs/{{ svc.cert_name }}-cert.pem /etc/caddy/certs/{{ svc.cert_name }}-key.pem {
+        protocols tls1.2 tls1.3
+        {% if svc.tls_client_auth is defined and svc.tls_client_auth == 'cloudflare' %}
+        client_auth {
+            trusted_ca_cert_file /etc/caddy/certs/cloudflare-origin-pull-ca.pem
+        }
+        {% endif %}
+    }
+    {% else %}
     tls {
         protocols tls1.2 tls1.3
     }
+    {% endif %}
 
+    # SC-7 / SC-23 | Per-service security headers
     header {
-        # --- Hardened security headers (applied to all services) ---
         Strict-Transport-Security   "max-age=31536000; includeSubDomains; preload"
         X-Content-Type-Options      "nosniff"
         X-Frame-Options             "{{ svc.x_frame_options | default('DENY') }}"
@@ -161,8 +204,9 @@
         {% if svc.permissions_policy is defined and svc.permissions_policy | length > 0 %}
         Permissions-Policy          "{{ svc.permissions_policy }}"
         {% endif %}
-        # Hide Caddy server banner
         -Server
     }
 }
+{% endif %}
+{% endif %}
 {% endfor %}

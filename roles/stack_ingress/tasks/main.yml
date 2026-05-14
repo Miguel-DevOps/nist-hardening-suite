@@ -48,9 +48,11 @@
       - ingress_services | length > 0
       - ingress_security_profiles is defined
     fail_msg: >-
-      ingress_services/ingress_security_profiles are required.
-      Define them in group_vars/all/ingress.yml.
-    success_msg: "Ingress routing catalog is present."
+      ingress_services is empty or undefined.
+      Vault may not be decrypted or secrets.yml is malformed.
+      Aborting to prevent deploying an empty Caddyfile.
+      Verify: ansible-vault view group_vars/all/secrets.yml
+    success_msg: "Ingress routing catalog is present - {{ ingress_services | length }} service(s) defined."
 
 - name: Preflight | Assert each ingress service has required fields and valid security profile
   ansible.builtin.assert:
@@ -61,12 +63,80 @@
       - item.upstream | length > 0
       - item.security_profile is defined
       - ingress_security_profiles[item.security_profile] is defined
+      - item.target_group is defined
+      - item.target_group | length > 0
     fail_msg: >-
       Invalid ingress service entry {{ item | to_nice_json }}.
-      Each item requires domain, upstream, and a valid security_profile.
+      Each item requires domain, upstream, target_group (brain|muscle|[brain,muscle]), and a valid security_profile.
   loop: "{{ ingress_services }}"
   loop_control:
     label: "{{ item.domain | default('unknown-domain') }}"
+
+- name: Preflight | Cross-validate cert_name references exist in cloudflare_origin_certs
+  ansible.builtin.assert:
+    that:
+      - >-
+        item.cert_name is not defined
+        or (cloudflare_origin_certs is defined and item.cert_name in cloudflare_origin_certs)
+    fail_msg: >-
+      Service {{ item.domain }} references cert_name '{{ item.cert_name }}'
+      which does not exist in cloudflare_origin_certs in group_vars/all/secrets.yml (vault).
+      Add the certificate to vault before deploying.
+      Valid cert_names in vault: {{ cloudflare_origin_certs.keys() | default([]) | join(', ') }}
+    success_msg: "cert_name '{{ item.cert_name | default('(not set)') }}' for {{ item.domain }} is valid."
+  loop: "{{ ingress_services }}"
+  loop_control:
+    label: "{{ item.domain | default('unknown-domain') }}"
+  when: item.cert_name is defined
+
+- name: Preflight | Validate caddy_type is set (scalability gate - every node must belong to brain or muscle group)
+  ansible.builtin.assert:
+    that:
+      - caddy_type is defined
+      - caddy_type in ['brain', 'muscle']
+    fail_msg: >-
+      caddy_type must be 'brain' or 'muscle', got '{{ caddy_type | default('undefined') }}'.
+      Node {{ inventory_hostname }} does not belong to a recognized Caddy group.
+      Ensure the node is in [brain] or [muscle] in inventory/hosts.ini
+      and that group_vars/{{ caddy_type | default('unknown') }}/caddy.yml exists.
+      Adding a new node requires ONLY adding it to the inventory group - zero additional files needed.
+    success_msg: "caddy_type is valid: {{ caddy_type }} (inherited from group_vars/{{ caddy_type }}/caddy.yml)."
+
+- name: Preflight | Validate caddy_coraza_mode is set per host (inventory inline var)
+  ansible.builtin.assert:
+    that:
+      - caddy_coraza_mode is defined
+      - caddy_coraza_mode in ['On', 'DetectionOnly']
+    fail_msg: >-
+      caddy_coraza_mode must be 'On' or 'DetectionOnly', got '{{ caddy_coraza_mode | default('undefined') }}'.
+      Set this per host as an inline inventory variable in inventory/hosts.ini.
+      Valid values: On, DetectionOnly, Off.
+      Do NOT set this in group_vars - each node may need a different WAF state.
+      Example: brain-1 ansible_host=... caddy_node_id=brain-1 caddy_coraza_mode=On
+    success_msg: "caddy_coraza_mode is valid: {{ caddy_coraza_mode }} (from inventory)."
+
+- name: Preflight | Validate caddy_node_id is set per host (inventory inline var)
+  ansible.builtin.assert:
+    that:
+      - caddy_node_id is defined
+      - caddy_node_id | length > 0
+    fail_msg: >-
+      caddy_node_id is missing for {{ inventory_hostname }}.
+      Set this per host as an inline inventory variable in inventory/hosts.ini.
+      Example: brain-1 ansible_host=... caddy_node_id=brain-1 caddy_coraza_mode=On
+      Every Caddy host must have a unique caddy_node_id matching its inventory_hostname.
+      Do NOT set this in group_vars.
+    success_msg: "caddy_node_id is valid: {{ caddy_node_id }} (from inventory)."
+
+- name: Preflight | Validate caddy_admin_enabled is set and valid
+  ansible.builtin.assert:
+    that:
+      - caddy_admin_enabled is defined
+      - caddy_admin_enabled in [true, false]
+    fail_msg: >-
+      caddy_admin_enabled must be true or false, got '{{ caddy_admin_enabled | default('undefined') }}'.
+      Set this in group_vars/{{ caddy_type | default('unknown') }}/caddy.yml.
+    success_msg: "caddy_admin_enabled is valid: {{ caddy_admin_enabled }}."
 
 - name: AC-2 | Ensure dedicated caddy system user exists (no shell, no home)
   ansible.builtin.group:
@@ -445,6 +515,78 @@
     success_msg: "Caddy log volume write access is valid."
   tags: [nist, au-12, si-4]
 
+# Precompute effective target groups: group_names + caddy_node_id.
+# Used by both cert resolution and CA bundle deploy to match the Caddyfile.j2
+# routing logic (group_names OR caddy_node_id).
+- name: Resolve effective target groups for this node
+  ansible.builtin.set_fact:
+    _caddy_effective_groups: "{{ group_names + ([caddy_node_id] if caddy_node_id is defined else []) }}"
+
+# SC-12 / SC-28 | Compute which Cloudflare Origin certs this node actually needs.
+# Certificates are only deployed to nodes whose ingress_services reference them
+# (filtered by target_group ∩ (group_names ∪ caddy_node_id)).
+- name: SC-12/SC-28 | Resolve certificates needed by this node
+  ansible.builtin.set_fact:
+    _caddy_needed_certs: >-
+      {{
+        ingress_services
+        | selectattr('cert_name', 'defined')
+        | selectattr('target_group', 'defined')
+        | selectattr('target_group', 'in', _caddy_effective_groups)
+        | map(attribute='cert_name')
+        | unique
+        | list
+      }}
+  when: cloudflare_origin_certs is defined
+
+- name: SC-28 | Deploy Cloudflare Origin Certificates (only to target nodes)
+  ansible.builtin.copy:
+    content: "{{ cloudflare_origin_certs[item].cert }}"
+    dest: "{{ app_base_dir }}/ingress/certs/{{ item }}-cert.pem"
+    mode: "0644"
+    owner: "{{ _caddy_effective_uid | int }}"
+    group: "{{ _caddy_effective_gid | int }}"
+  loop: "{{ _caddy_needed_certs | default([]) }}"
+  when:
+    - cloudflare_origin_certs is defined
+    - _caddy_needed_certs | default([]) | length > 0
+    - item in cloudflare_origin_certs
+  tags: [nist, cloudflare, sc-28]
+
+- name: SC-28 | Deploy Cloudflare Origin Private Keys (only to target nodes)
+  ansible.builtin.copy:
+    content: "{{ cloudflare_origin_certs[item].key }}"
+    dest: "{{ app_base_dir }}/ingress/certs/{{ item }}-key.pem"
+    mode: "0600"
+    owner: "{{ _caddy_effective_uid | int }}"
+    group: "{{ _caddy_effective_gid | int }}"
+  loop: "{{ _caddy_needed_certs | default([]) }}"
+  when:
+    - cloudflare_origin_certs is defined
+    - _caddy_needed_certs | default([]) | length > 0
+    - item in cloudflare_origin_certs
+  tags: [nist, cloudflare, sc-28]
+  no_log: true
+
+# F5 / SC-8 / SC-13 | Deploy Cloudflare Origin Pull CA bundle for TLS client_auth.
+# Only deployed to nodes with at least one ingress_services entry that has
+# tls_client_auth: cloudflare AND whose target_group matches this node
+# (via group_names OR caddy_node_id, matching the Caddyfile.j2 routing logic).
+- name: SC-8/SC-13 | Deploy Cloudflare Origin Pull CA bundle (only to nodes that need it)
+  ansible.builtin.copy:
+    src: cloudflare-origin-pull-ca.pem
+    dest: "{{ app_base_dir }}/ingress/certs/cloudflare-origin-pull-ca.pem"
+    mode: "0644"
+    owner: "{{ caddy_user_uid | int }}"
+    group: "{{ caddy_user_gid | int }}"
+  when: >-
+    ingress_services
+    | selectattr('tls_client_auth', 'defined')
+    | selectattr('tls_client_auth', 'equalto', 'cloudflare')
+    | selectattr('target_group', 'in', _caddy_effective_groups)
+    | list | length > 0
+  tags: [nist, cloudflare, sc-8, sc-13]
+
 - name: Validate Caddyfile.j2 presence
   ansible.builtin.stat:
     path: "{{ role_path }}/templates/Caddyfile.j2"
@@ -576,7 +718,7 @@
     - name: Fail with deployment context
       ansible.builtin.fail:
         msg: >-
-          Caddy stack deployment failed — see 'Show Caddy startup logs for diagnosis'
+          Caddy stack deployment failed - see 'Show Caddy startup logs for diagnosis'
           above for the root cause.
 
 - name: Get Caddy container info

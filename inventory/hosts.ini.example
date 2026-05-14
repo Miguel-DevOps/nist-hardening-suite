@@ -1,20 +1,36 @@
 # ==============================================================================
 # ANSIBLE INVENTORY - Multi-Cloud Cluster (Template)
 # ==============================================================================
-# Copy this file to hosts.ini and replace placeholder values
-# DO NOT commit hosts.ini to version control (contains sensitive IPs)
+# Copy this file to hosts.ini and replace placeholder values.
+# DO NOT commit hosts.ini to version control (contains sensitive IPs).
+#
+# VARIABLE OWNERSHIP - three-layer model:
+#   Layer 1 | vault (secrets.yml)       → domains, certs, service routes, API keys
+#   Layer 2 | inventory (this file)     → caddy_node_id, caddy_coraza_mode, ansible_user (operational, per host)
+#   Layer 3 | group_vars (brain|muscle) → caddy_type, caddy_admin_enabled (group defaults)
+#
+# ansible_user is PER HOST - NEVER in group_vars. OS/user conventions:
+#   Debian / root-provisioned nodes: ansible_user=root
+#   Ubuntu / Oracle Cloud nodes:     ansible_user=ubuntu
+#   Custom provisioned nodes:        ansible_user=<your_user>
+# The Makefile auto-detects non-root users and prompts for become password (BECOME_PROMPT_FLAG).
+# DO NOT assume a single user across a group - OS distributions vary per node.
 # ==============================================================================
 
 # ===== SERVER GROUPS =====
 [brain]
 # Management Node (Hetzner, DigitalOcean, etc.)
-brain-1 ansible_host=YOUR_BRAIN_PUBLIC_IP ansible_user=root public_ip=YOUR_BRAIN_PUBLIC_IP node_role=management
+# caddy_coraza_mode: On (internet-facing, Cloudflare-proxied), DetectionOnly (tuning), Off (disabled)
+brain-1 ansible_host=YOUR_BRAIN_PUBLIC_IP ansible_user=root public_ip=YOUR_BRAIN_PUBLIC_IP node_role=management caddy_node_id=brain-1 caddy_coraza_mode=On
+# brain-2 ansible_host=SECOND_BRAIN_PUBLIC_IP ansible_user=root public_ip=SECOND_BRAIN_PUBLIC_IP node_role=management caddy_node_id=brain-2 caddy_coraza_mode=DetectionOnly
 
 [muscle]
 # Compute Workers (Oracle Cloud, AWS, GCP, etc.)
-muscle-1 ansible_host=YOUR_MUSCLE_PUBLIC_IP ansible_user=ubuntu public_ip=YOUR_MUSCLE_PUBLIC_IP node_role=worker
+# caddy_coraza_mode: DetectionOnly (tuning), On (blocking after tuning), Off (disabled)
+muscle-1 ansible_host=YOUR_MUSCLE_PUBLIC_IP ansible_user=ubuntu public_ip=YOUR_MUSCLE_PUBLIC_IP node_role=worker caddy_node_id=muscle-1 caddy_coraza_mode=DetectionOnly
 # Add more workers as needed:
-# muscle-2 ansible_host=ANOTHER_PUBLIC_IP ansible_user=ubuntu public_ip=ANOTHER_PUBLIC_IP node_role=worker
+# muscle-2 ansible_host=ANOTHER_PUBLIC_IP ansible_user=ubuntu public_ip=ANOTHER_PUBLIC_IP node_role=worker caddy_node_id=muscle-2 caddy_coraza_mode=DetectionOnly
+# muscle-3 ansible_host=ANOTHER_PUBLIC_IP ansible_user=ubuntu public_ip=ANOTHER_PUBLIC_IP node_role=worker caddy_node_id=muscle-3 caddy_coraza_mode=DetectionOnly
 
 # ===== FUNCTIONAL GROUPS =====
 [observability:children]
