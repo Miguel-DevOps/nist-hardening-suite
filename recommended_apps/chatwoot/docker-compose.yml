@@ -1,91 +1,167 @@
 x-chatwoot-env: &chatwoot_env
+  # Application
   - FRONTEND_URL=${CHATWOOT_FRONTEND_URL}
   - SECRET_KEY_BASE=${CHATWOOT_SECRET_KEY_BASE}
-  - POSTGRES_DATABASE=chatwoot_production
-  - POSTGRES_HOST=chatwoot-db
-  - POSTGRES_USERNAME=${CHATWOOT_DB_USER}
-  - POSTGRES_PASSWORD=${CHATWOOT_DB_PASSWORD}
-  - REDIS_URL=redis://default:${CHATWOOT_REDIS_PASSWORD}@chatwoot-valkey:6379
   - RAILS_ENV=production
   - INSTALLATION_ENV=docker
+
+  # Database
+  - POSTGRES_DATABASE=${CHATWOOT_DB_NAME}
+  - POSTGRES_HOST=${CHATWOOT_DB_HOST}
+  - POSTGRES_PORT=${CHATWOOT_DB_PORT}
+  - POSTGRES_USERNAME=${CHATWOOT_DB_USER}
+  - POSTGRES_PASSWORD=${CHATWOOT_DB_PASSWORD}
+
+  # Valkey / Redis
+  - REDIS_URL=redis://default:${CHATWOOT_REDIS_PASSWORD}@${CHATWOOT_REDIS_HOST}:${CHATWOOT_REDIS_PORT}
+
+  # SMTP
   - MAILER_SENDER_EMAIL=${MAILER_SENDER_EMAIL}
   - SMTP_ADDRESS=${SMTP_ADDRESS}
+  - SMTP_PORT=${SMTP_PORT}
   - SMTP_USERNAME=${SMTP_USERNAME}
   - SMTP_PASSWORD=${SMTP_PASSWORD}
+  - SMTP_DOMAIN=${SMTP_DOMAIN}
+  - SMTP_AUTHENTICATION=${SMTP_AUTHENTICATION}
+  - SMTP_ENABLE_STARTTLS_AUTO=${SMTP_ENABLE_STARTTLS_AUTO}
 
 services:
+  chatwoot:
+    image: ${CHATWOOT_IMAGE:-chatwoot/chatwoot:v4.12.1}
+    container_name: chatwoot
+    hostname: chatwoot
+    restart: unless-stopped
+
+    depends_on:
+      chatwoot-db:
+        condition: service_healthy
+      chatwoot-valkey:
+        condition: service_healthy
+
+    entrypoint: docker/entrypoints/rails.sh
+    command:
+      [
+        "bundle",
+        "exec",
+        "rails",
+        "s",
+        "-p",
+        "3000",
+        "-b",
+        "0.0.0.0"
+      ]
+
+    environment: *chatwoot_env
+
+    volumes:
+      - chatwoot_storage:/app/storage
+
+    networks:
+      - internal
+      - public
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/ || exit 1"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  chatwoot-worker:
+    image: ${CHATWOOT_IMAGE:-chatwoot/chatwoot:v4.12.1}
+    container_name: chatwoot-worker
+    restart: unless-stopped
+
+    depends_on:
+      chatwoot:
+        condition: service_healthy
+
+    entrypoint: docker/entrypoints/rails.sh
+    command:
+      [
+        "bundle",
+        "exec",
+        "sidekiq",
+        "-C",
+        "config/sidekiq.yml"
+      ]
+
+    environment: *chatwoot_env
+
+    volumes:
+      - chatwoot_storage:/app/storage
+
+    networks:
+      - internal
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "ps aux | grep '[s]idekiq' || exit 1"
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   chatwoot-db:
     image: ${CHATWOOT_DB_IMAGE:-pgvector/pgvector:pg17}
+    container_name: chatwoot-db
     restart: unless-stopped
+
     environment:
-      POSTGRES_USER: ${CHATWOOT_DB_USER}
-      POSTGRES_PASSWORD: ${CHATWOOT_DB_PASSWORD}
-      POSTGRES_DB: chatwoot_production
+      - POSTGRES_USER=${CHATWOOT_DB_USER}
+      - POSTGRES_PASSWORD=${CHATWOOT_DB_PASSWORD}
+      - POSTGRES_DB=${CHATWOOT_DB_NAME}
+
     volumes:
       - chatwoot_db_data:/var/lib/postgresql/data
+
     networks:
-      - chatwoot_net
+      - internal
+
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${CHATWOOT_DB_USER} -d chatwoot_production"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
 
   chatwoot-valkey:
     image: ${CHATWOOT_VALKEY_IMAGE:-valkey/valkey:9.0.3}
+    container_name: chatwoot-valkey
     restart: unless-stopped
-    command: ["valkey-server", "--requirepass", "${CHATWOOT_REDIS_PASSWORD}"]
+
+    command:
+      [
+        "valkey-server",
+        "--appendonly",
+        "yes",
+        "--requirepass",
+        "${CHATWOOT_REDIS_PASSWORD}"
+      ]
+
     volumes:
       - chatwoot_valkey_data:/data
+
     networks:
-      - chatwoot_net
+      - internal
+
     healthcheck:
-      test: ["CMD-SHELL", "valkey-cli -a ${CHATWOOT_REDIS_PASSWORD} ping"]
+      test:
+        [
+          "CMD-SHELL",
+          "valkey-cli -a $${CHATWOOT_REDIS_PASSWORD} ping"
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
-
-  chatwoot-web:
-    image: ${CHATWOOT_IMAGE:-chatwoot/chatwoot:v4.12.1}
-    restart: unless-stopped
-    depends_on:
-      chatwoot-db:
-        condition: service_healthy
-      chatwoot-valkey:
-        condition: service_healthy
-    entrypoint: docker/entrypoints/rails.sh
-    command: ["bundle", "exec", "rails", "s", "-p", "3000", "-b", "0.0.0.0"]
-    environment: *chatwoot_env
-    volumes:
-      - chatwoot_storage:/app/storage
-    networks:
-      - chatwoot_net
-      - public_net
-    healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/ || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-    # Manual DB bootstrap (run once after the stack is up):
-    # docker compose exec chatwoot-web bundle exec rails db:chatwoot_prepare | sudo docker exec -it chatwoot bundle exec rails db:schema:load
-  chatwoot-worker:
-    image: ${CHATWOOT_IMAGE:-chatwoot/chatwoot:v4.12.1}
-    restart: unless-stopped
-    depends_on:
-      chatwoot-web:
-        condition: service_healthy
-    entrypoint: docker/entrypoints/rails.sh
-    command: ["bundle", "exec", "sidekiq", "-C", "config/sidekiq.yml"]
-    environment: *chatwoot_env
-    volumes:
-      - chatwoot_storage:/app/storage
-    networks:
-      - chatwoot_net
-    healthcheck:
-      test: ["CMD-SHELL", "ps aux | grep '[s]idekiq' || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
 volumes:
   chatwoot_db_data: {}
@@ -93,7 +169,8 @@ volumes:
   chatwoot_storage: {}
 
 networks:
-  public_net:
+  public:
     external: true
-  chatwoot_net:
+
+  internal:
     driver: bridge

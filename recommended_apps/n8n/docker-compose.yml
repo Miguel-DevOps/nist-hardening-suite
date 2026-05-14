@@ -5,35 +5,60 @@ x-n8n-env: &n8n_env
   - N8N_EDITOR_BASE_URL=${N8N_EDITOR_BASE_URL}
   - WEBHOOK_URL=${WEBHOOK_URL}
   - N8N_PROXY_HOPS=${N8N_PROXY_HOPS:-1}
+
+  # Queue Mode
   - EXECUTIONS_MODE=${EXECUTIONS_MODE:-queue}
   - QUEUE_BULL_REDIS_HOST=${N8N_REDIS_HOST}
   - QUEUE_BULL_REDIS_PORT=${N8N_REDIS_PORT}
   - QUEUE_BULL_REDIS_PASSWORD=${N8N_REDIS_PASSWORD}
+
+  # Database
   - DB_TYPE=${N8N_DB_TYPE}
   - DB_POSTGRESDB_HOST=${N8N_DB_POSTGRESDB_HOST}
   - DB_POSTGRESDB_PORT=${N8N_DB_POSTGRESDB_PORT}
   - DB_POSTGRESDB_DATABASE=${N8N_DB_POSTGRESDB_DATABASE}
   - DB_POSTGRESDB_USER=${N8N_DB_POSTGRESDB_USER}
   - DB_POSTGRESDB_PASSWORD=${N8N_DB_POSTGRESDB_PASSWORD}
+
+  # Authentication
   - N8N_BASIC_AUTH_ACTIVE=${N8N_BASIC_AUTH_ACTIVE}
   - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
   - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
 
+  # Privacy & Security
+  - N8N_DIAGNOSTICS_ENABLED=${N8N_DIAGNOSTICS_ENABLED}
+  - N8N_VERSION_NOTIFICATIONS_ENABLED=${N8N_VERSION_NOTIFICATIONS_ENABLED}
+  - N8N_PERSONALIZATION_ENABLED=${N8N_PERSONALIZATION_ENABLED}
+  - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+
+  # Workers & Runners
+  - OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS=${OFFLOAD_MANUAL_EXECUTIONS_TO_WORKERS}
+
+  # Logging
+  - N8N_LOG_LEVEL=${N8N_LOG_LEVEL}
+  - N8N_LOG_OUTPUT=${N8N_LOG_OUTPUT}
+
 services:
   n8n:
     image: n8nio/n8n:2.15.0
+    container_name: n8n
     restart: unless-stopped
+
     depends_on:
       postgres:
         condition: service_healthy
       valkey:
         condition: service_healthy
+
+    environment: *n8n_env
+
     volumes:
       - n8n_data:/home/node/.n8n
-    environment: *n8n_env
+
     networks:
-      - n8n_internal
-      - public_net
+      - internal
+      - public
+
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:5678/healthz || exit 1"]
       interval: 15s
@@ -42,30 +67,44 @@ services:
 
   n8n-worker:
     image: n8nio/n8n:2.15.0
+    container_name: n8n-worker
     restart: unless-stopped
+    command: worker
+
     depends_on:
       postgres:
         condition: service_healthy
       valkey:
         condition: service_healthy
-    command: worker
-    volumes:
-      - n8n_data:/home/node/.n8n
+
     environment: *n8n_env
+
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+        reservations:
+          memory: 512m
+
     networks:
-      - n8n_internal
+      - internal
 
   postgres:
     image: ${N8N_DB_IMAGE:-postgres:17}
+    container_name: postgres
     restart: unless-stopped
+
     environment:
       - POSTGRES_USER=${N8N_DB_POSTGRESDB_USER}
       - POSTGRES_PASSWORD=${N8N_DB_POSTGRESDB_PASSWORD}
       - POSTGRES_DB=${N8N_DB_POSTGRESDB_DATABASE}
+
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
     networks:
-      - n8n_internal
+      - internal
+
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres}"]
       interval: 10s
@@ -74,12 +113,24 @@ services:
 
   valkey:
     image: ${N8N_VALKEY_IMAGE:-valkey/valkey:9.0.3}
+    container_name: valkey
     restart: unless-stopped
-    command: ["valkey-server", "--save", "", "--appendonly", "no", "--requirepass", "${N8N_REDIS_PASSWORD}"]
+
+    command:
+      [
+        "valkey-server",
+        "--appendonly",
+        "yes",
+        "--requirepass",
+        "${N8N_REDIS_PASSWORD}"
+      ]
+
     volumes:
       - valkey_data:/data
+
     networks:
-      - n8n_internal
+      - internal
+
     healthcheck:
       test: ["CMD-SHELL", "valkey-cli -a $${N8N_REDIS_PASSWORD} ping"]
       interval: 10s
@@ -92,7 +143,8 @@ volumes:
   valkey_data: {}
 
 networks:
-  public_net:
+  public:
     external: true
-  n8n_internal:
+
+  internal:
     driver: bridge
