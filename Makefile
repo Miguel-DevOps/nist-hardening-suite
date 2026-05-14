@@ -18,6 +18,8 @@ BECOME_PROMPT_FLAG := $(shell if [ -f "$(ANSIBLE_INVENTORY)" ]; then \
 	user != "" && user != "root" { print "--ask-become-pass"; exit }' "$(ANSIBLE_INVENTORY)"; \
 fi)
 VAULT_PROMPT_FLAG ?= --ask-vault-pass
+APT_FORCE ?= false
+APT_FORCE_FLAG := $(if $(filter true,$(APT_FORCE)),--extra-vars "apt_force_cleanup=true",)
 
 .DEFAULT_GOAL := help
 
@@ -56,6 +58,8 @@ help:
 	@echo "  deploy-tags          : Run PLAYBOOK with ANSIBLE_TAGS=<tags>"
 	@echo "  deploy-skip-tags     : Run PLAYBOOK with ANSIBLE_SKIP_TAGS=<tags>"
 	@echo "  compliance           : Run site.yml with compliance tag"
+	@echo "  APT_FORCE=true       : Force-kill hung apt processes (default: false)"
+	@echo "  ANSIBLE_OPTS         : Pass extra ansible-playbook options (e.g. -vvv)"
 	@echo "  become prompt        : auto-enabled when inventory has non-root ansible_user"
 	@echo "  note                 : All Ansible executions run through $(PKG) run"
 	@echo ""
@@ -140,39 +144,39 @@ vault-view:
 
 deploy:
 	@echo "Deploying base hardening (site.yml)..."
-	$(PKG) run ansible-playbook -i $(ANSIBLE_INVENTORY) site.yml $(BECOME_PROMPT_FLAG) $(VAULT_PROMPT_FLAG) $(if $(ANSIBLE_LIMIT),--limit $(ANSIBLE_LIMIT),) $(ANSIBLE_OPTS)
+	$(PKG) run ansible-playbook -i $(ANSIBLE_INVENTORY) site.yml $(BECOME_PROMPT_FLAG) $(VAULT_PROMPT_FLAG) $(if $(ANSIBLE_LIMIT),--limit $(ANSIBLE_LIMIT),) $(APT_FORCE_FLAG) $(ANSIBLE_OPTS)
 
 deploy-stacks:
 	@echo "Deploying stack services (stacks.yml)..."
-	$(PKG) run ansible-playbook -i $(ANSIBLE_INVENTORY) stacks.yml $(BECOME_PROMPT_FLAG) $(VAULT_PROMPT_FLAG) $(if $(ANSIBLE_LIMIT),--limit $(ANSIBLE_LIMIT),) $(ANSIBLE_OPTS)
+	$(PKG) run ansible-playbook -i $(ANSIBLE_INVENTORY) stacks.yml $(BECOME_PROMPT_FLAG) $(VAULT_PROMPT_FLAG) $(if $(ANSIBLE_LIMIT),--limit $(ANSIBLE_LIMIT),) $(APT_FORCE_FLAG) $(ANSIBLE_OPTS)
 
 deploy-monitoring:
 	@echo "Deploying observability stack (monitoring.yml)..."
-	$(PKG) run ansible-playbook -i $(ANSIBLE_INVENTORY) monitoring.yml $(BECOME_PROMPT_FLAG) $(VAULT_PROMPT_FLAG) $(if $(ANSIBLE_LIMIT),--limit $(ANSIBLE_LIMIT),) $(ANSIBLE_OPTS)
+	$(PKG) run ansible-playbook -i $(ANSIBLE_INVENTORY) monitoring.yml $(BECOME_PROMPT_FLAG) $(VAULT_PROMPT_FLAG) $(if $(ANSIBLE_LIMIT),--limit $(ANSIBLE_LIMIT),) $(APT_FORCE_FLAG) $(ANSIBLE_OPTS)
 
 deploy-custom:
 	@test -n "$(PLAYBOOK)" || (echo "Set PLAYBOOK=<file>.yml" && exit 1)
 	@test -f "$(PLAYBOOK)" || (echo "Playbook not found: $(PLAYBOOK)" && exit 1)
-	$(PKG) run ansible-playbook -i $(ANSIBLE_INVENTORY) $(PLAYBOOK) $(BECOME_PROMPT_FLAG) $(VAULT_PROMPT_FLAG) $(if $(ANSIBLE_LIMIT),--limit $(ANSIBLE_LIMIT),) $(ANSIBLE_OPTS)
+	$(PKG) run ansible-playbook -i $(ANSIBLE_INVENTORY) $(PLAYBOOK) $(BECOME_PROMPT_FLAG) $(VAULT_PROMPT_FLAG) $(if $(ANSIBLE_LIMIT),--limit $(ANSIBLE_LIMIT),) $(APT_FORCE_FLAG) $(ANSIBLE_OPTS)
 
 dry-run:
 	@test -f "$(PLAYBOOK)" || (echo "Playbook not found: $(PLAYBOOK)" && exit 1)
 	@echo "Running dry-run for $(PLAYBOOK)..."
-	$(PKG) run ansible-playbook -i $(ANSIBLE_INVENTORY) $(PLAYBOOK) $(BECOME_PROMPT_FLAG) $(VAULT_PROMPT_FLAG) --check --diff $(if $(ANSIBLE_LIMIT),--limit $(ANSIBLE_LIMIT),) $(ANSIBLE_OPTS)
+	$(PKG) run ansible-playbook -i $(ANSIBLE_INVENTORY) $(PLAYBOOK) $(BECOME_PROMPT_FLAG) $(VAULT_PROMPT_FLAG) --check --diff $(if $(ANSIBLE_LIMIT),--limit $(ANSIBLE_LIMIT),) $(APT_FORCE_FLAG) $(ANSIBLE_OPTS)
 
 deploy-tags:
 	@test -f "$(PLAYBOOK)" || (echo "Playbook not found: $(PLAYBOOK)" && exit 1)
 	@test -n "$(ANSIBLE_TAGS)" || (echo "Set ANSIBLE_TAGS=<tag1,tag2>" && exit 1)
-	$(PKG) run ansible-playbook -i $(ANSIBLE_INVENTORY) $(PLAYBOOK) $(BECOME_PROMPT_FLAG) $(VAULT_PROMPT_FLAG) --tags "$(ANSIBLE_TAGS)" $(if $(ANSIBLE_LIMIT),--limit $(ANSIBLE_LIMIT),) $(ANSIBLE_OPTS)
+	$(PKG) run ansible-playbook -i $(ANSIBLE_INVENTORY) $(PLAYBOOK) $(BECOME_PROMPT_FLAG) $(VAULT_PROMPT_FLAG) --tags "$(ANSIBLE_TAGS)" $(if $(ANSIBLE_LIMIT),--limit $(ANSIBLE_LIMIT),) $(APT_FORCE_FLAG) $(ANSIBLE_OPTS)
 
 deploy-skip-tags:
 	@test -f "$(PLAYBOOK)" || (echo "Playbook not found: $(PLAYBOOK)" && exit 1)
 	@test -n "$(ANSIBLE_SKIP_TAGS)" || (echo "Set ANSIBLE_SKIP_TAGS=<tag1,tag2>" && exit 1)
-	$(PKG) run ansible-playbook -i $(ANSIBLE_INVENTORY) $(PLAYBOOK) $(BECOME_PROMPT_FLAG) $(VAULT_PROMPT_FLAG) --skip-tags "$(ANSIBLE_SKIP_TAGS)" $(if $(ANSIBLE_LIMIT),--limit $(ANSIBLE_LIMIT),) $(ANSIBLE_OPTS)
+	$(PKG) run ansible-playbook -i $(ANSIBLE_INVENTORY) $(PLAYBOOK) $(BECOME_PROMPT_FLAG) $(VAULT_PROMPT_FLAG) --skip-tags "$(ANSIBLE_SKIP_TAGS)" $(if $(ANSIBLE_LIMIT),--limit $(ANSIBLE_LIMIT),) $(APT_FORCE_FLAG) $(ANSIBLE_OPTS)
 
 compliance:
 	@echo "Running compliance audit tag on site.yml..."
-	$(PKG) run ansible-playbook -i $(ANSIBLE_INVENTORY) site.yml $(BECOME_PROMPT_FLAG) $(VAULT_PROMPT_FLAG) --tags compliance $(if $(ANSIBLE_LIMIT),--limit $(ANSIBLE_LIMIT),) $(ANSIBLE_OPTS)
+	$(PKG) run ansible-playbook -i $(ANSIBLE_INVENTORY) site.yml $(BECOME_PROMPT_FLAG) $(VAULT_PROMPT_FLAG) --tags compliance $(if $(ANSIBLE_LIMIT),--limit $(ANSIBLE_LIMIT),) $(APT_FORCE_FLAG) $(ANSIBLE_OPTS)
 
 verify-tailscale:
 	$(PKG) run ansible all -i $(ANSIBLE_INVENTORY) -m command -a "tailscale status"
@@ -253,7 +257,7 @@ nuke:
 	@echo "Destructive operation."
 	@echo "Required phrase: $(NUKE_CONFIRM_PHRASE)"
 	@if [ "$(CONFIRM)" = "$(NUKE_CONFIRM_PHRASE)" ]; then \
-		$(PKG) run ansible-playbook -i $(ANSIBLE_INVENTORY) nuke.yml $(BECOME_PROMPT_FLAG) $(VAULT_PROMPT_FLAG) $(if $(ANSIBLE_LIMIT),--limit $(ANSIBLE_LIMIT),) $(ANSIBLE_OPTS); \
+		$(PKG) run ansible-playbook -i $(ANSIBLE_INVENTORY) nuke.yml $(BECOME_PROMPT_FLAG) $(VAULT_PROMPT_FLAG) $(if $(ANSIBLE_LIMIT),--limit $(ANSIBLE_LIMIT),) $(APT_FORCE_FLAG) $(ANSIBLE_OPTS); \
 	else \
 		echo "Aborted. Run with CONFIRM=$(NUKE_CONFIRM_PHRASE) to proceed."; exit 1; \
 	fi

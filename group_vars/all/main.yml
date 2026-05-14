@@ -66,6 +66,13 @@ container_user_nobody: "65534"
 container_group_nogroup: "65534"
 
 # =====================
+# APT lock resolution
+# Set to true to force-kill ANY process holding APT locks (useful when a stuck
+# apt-get/dpkg process can't be waited out). Default: only processes running
+# longer than 15 minutes are auto-cleaned (stale detection).
+# Usage: --extra-vars "apt_force_cleanup=true"
+apt_force_cleanup: false
+
 # Resource Limits (safe to expose)
 systemd_nofile_soft: 65536
 systemd_nofile_hard: 65536
